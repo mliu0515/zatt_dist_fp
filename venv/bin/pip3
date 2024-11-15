@@ -1,6 +1,4 @@
-#!/bin/sh
-'''exec' "/Users/mayliu/Desktop/UT/Fall 2024/Dist/FP/working_zatt/zatt/may_env/bin/python3.12" "$0" "$@"
-' '''
+#!/Users/mayliu/Desktop/zatt_dist_fp/venv/bin/python3.11
 # -*- coding: utf-8 -*-
 import re
 import sys
