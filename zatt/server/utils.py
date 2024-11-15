@@ -5,6 +5,7 @@ import asyncio
 import logging
 import collections
 import msgpack
+import pickle
 
 MAX_MSGPACK_ARRAY_HEADER_LEN = 5
 logger = logging.getLogger(__name__)
@@ -57,6 +58,38 @@ class TallyCounter:
     def increment(self, category, amount=1):
         self.data[category]['current'] += amount
 
+
+def pickle_appendable_pack(o, path):
+    open(path, 'a+').close()  # touch
+    # Check if the file is empty
+    if os.path.getsize(path) == 0:
+        # Initialize an empty list and serialize it to the file
+        with open(path, 'wb') as f:
+            pickle.dump([], f)
+    with open(path, 'rb') as f:
+        try:
+            data = pickle.load(f)
+        except EOFError:
+            data = []
+    if type(o) == list:
+        data.extend(o)
+    else:
+        data.append(o)
+    with open(path, 'wb') as f:
+        pickle.dump(data, f)
+
+
+def pickle_appendable_unpack(path):
+    try:
+        with open(path, 'rb') as f:
+            data = pickle.load(f)
+            if type(data) != list:
+                data = [data]
+            return data
+        
+    except (EOFError, FileNotFoundError):
+        return []
+    
 
 def msgpack_appendable_pack(o, path):
     open(path, 'a+').close()  # touch

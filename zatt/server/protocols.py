@@ -5,6 +5,7 @@ import logging
 from .states import Follower
 from .config import config
 from .utils import extended_msgpack_serializer
+import pickle
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +30,31 @@ class Orchestrator():
         self.state.data_received_client(transport, message)
 
     def send(self, transport, message):
-        transport.sendto(msgpack.packb(message, use_bin_type=True,
-                         default=extended_msgpack_serializer))
+        # transport.sendto(msgpack.packb(message, use_bin_type=True,
+        #                  default=extended_msgpack_serializer))
+        transport.sendto(pickle.dumps(message))
+        
+    # I added this lol
+    def prepare_message_for_serialization(self, message):
+        # print("entries type is: ", type(message['entries']))
+        if "entries" in message: 
+            message['entries'] = message['entries'].to_list()
+        return message
 
     def send_peer(self, recipient, message):
+        # message = self.prepare_message_for_serialization(message)
+        # try:
         if recipient != self.state.volatile['address']:
+            # print("type of the message: ", type(message))
+            # self.peer_transport.sendto(
+            #     msgpack.packb(message, use_bin_type=True), tuple(recipient))
             self.peer_transport.sendto(
-                msgpack.packb(message, use_bin_type=True), tuple(recipient))
+                pickle.dumps(message), tuple(recipient))
+        # except Exception as e:
+        #     print(e)
+        #     print("This is the message: ", message)
+        #     print("msg entry: ", message['entries'])
+
 
     def broadcast_peers(self, message):
         for recipient in self.state.volatile['cluster']:
@@ -52,11 +71,15 @@ class PeerProtocol(asyncio.Protocol):
     def connection_made(self, transport):
         self.transport = transport
         if self.first_message:
-            transport.sendto(
-                msgpack.packb(self.first_message, use_bin_type=True))
+            # transport.sendto(
+            #     msgpack.packb(self.first_message, use_bin_type=True))
+            transport.sendto(pickle.dumps(self.first_message))
 
     def datagram_received(self, data, sender):
-        message = msgpack.unpackb(data, encoding='utf-8')
+        # message = msgpack.unpackb(data, encoding='utf-8')
+        # message = msgpack.unpackb(data, raw=False)
+        message = pickle.loads(data)
+        
         self.orchestrator.data_received_peer(sender, message)
 
     def error_received(self, ex):
@@ -74,7 +97,8 @@ class ClientProtocol(asyncio.Protocol):
         self.transport = transport
 
     def data_received(self, data):
-        message = msgpack.unpackb(data, encoding='utf-8')
+        # message = msgpack.unpackb(data, encoding='utf-8')
+        message = pickle.loads(data)
         self.orchestrator.data_received_client(self, message)
 
     def connection_lost(self, exc):
@@ -82,6 +106,7 @@ class ClientProtocol(asyncio.Protocol):
                      *self.transport.get_extra_info('peername'))
 
     def send(self, message):
-        self.transport.write(msgpack.packb(
-            message, use_bin_type=True, default=extended_msgpack_serializer))
+        # self.transport.write(msgpack.packb(
+        #     message, use_bin_type=True, default=extended_msgpack_serializer))
+        self.transport.write(pickle.dumps(message))
         self.transport.close()

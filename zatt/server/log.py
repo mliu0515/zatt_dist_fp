@@ -3,6 +3,7 @@ import msgpack
 import collections
 import asyncio
 import logging
+import pickle
 from .config import config
 from zatt.server import utils
 
@@ -19,7 +20,8 @@ class Log(collections.UserList):
             os.remove(self.path)
             logger.debug('Using parameters')
         elif os.path.isfile(self.path):
-            self.data = utils.msgpack_appendable_unpack(self.path)
+            # self.data = utils.msgpack_appendable_unpack(self.path)
+            self.data = utils.pickle_appendable_unpack(self.path)
             logger.debug('Using persisted data')
 
     def append_entries(self, entries, start):
@@ -27,14 +29,20 @@ class Log(collections.UserList):
             self.replace(self.data[:start] + entries)
         else:
             self.data += entries
-            utils.msgpack_appendable_pack(entries, self.path)
+            # utils.msgpack_appendable_pack(entries, self.path)
+            utils.pickle_appendable_pack(entries, self.path)
 
     def replace(self, new_data):
         if os.path.isfile(self.path):
             os.remove(self.path)
         self.data = new_data
-        utils.msgpack_appendable_pack(self.data, self.path)
-
+        # utils.msgpack_appendable_pack(self.data, self.path)
+        utils.pickle_appendable_pack(self.data, self.path)
+    
+    def to_list(self):
+        print("dfghjkl")
+        print(type(self.data[:]))
+        return self.data[:]
 
 class Compactor():
     def __init__(self, count=0, term=None, data={}):
@@ -49,7 +57,8 @@ class Compactor():
             logger.debug('Using parameters')
         elif os.path.isfile(self.path):
             with open(self.path, 'rb') as f:
-                self.__dict__.update(msgpack.unpack(f, encoding='utf-8'))
+                # self.__dict__.update(msgpack.unpack(f, encoding='utf-8'))
+                self.__dict__.update(pickle.load(f))
             logger.debug('Using persisted data')
 
     @property
@@ -59,7 +68,8 @@ class Compactor():
     def persist(self):
         with open(self.path, 'wb+') as f:
             raw = {'count': self.count, 'term': self.term, 'data': self.data}
-            msgpack.pack(raw, f, use_bin_type=True)
+            # msgpack.pack(raw, f, use_bin_type=True)
+            pickle.dump(raw, f)
 
 
 class DictStateMachine(collections.UserDict):

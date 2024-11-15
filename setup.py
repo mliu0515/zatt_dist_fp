@@ -12,6 +12,8 @@ if version.major < 3 or (version.major == 3 and version.minor < 4):
 else:
     entry_points = {'console_scripts': ['zattd=zatt.server.main:run']}
 
+print("Entry points being used:", entry_points)
+
 setup(name='Zatt',
       version='1.0',
       description='Implementation of the Raft algorithm for distributed consensus',

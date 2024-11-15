@@ -61,17 +61,18 @@ First, create an empty folder and enter it:
 
 Now create a config file `zatt.conf` with the following content:
 ```
-{"cluster": {
-    "0": ["127.0.0.1", 5254],
-    "1": ["127.0.0.1", 5255],
-    "2": ["127.0.0.1", 5256]
- }
+{
+    "cluster": [
+        ["127.0.0.1", 5254],
+        ["127.0.0.1", 5255],
+        ["127.0.0.1", 5256]
+    ]
 }
 ```
 
 You can now run the first node:
 
-`$ zattd -c zatt.conf --id 0 -s zatt.0.persist --debug`
+`$ zattd -c zatt.config -s zatt.0.persist -a 127.0.0.1 -p 5254 --debug`
 
 This tells zattd to run the node with `id:0`, taking the info about address and port from the config file.
 

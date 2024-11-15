@@ -1,11 +1,13 @@
 import asyncio
 import logging
 import statistics
+import pdb
 from random import randrange
 from os.path import join
 from .utils import PersistentDict, TallyCounter
 from .log import LogManager
 from .config import config
+
 
 logger = logging.getLogger(__name__)
 
@@ -64,9 +66,20 @@ class State:
         """Redirect client to leader upon receiving a client_append message."""
         msg = {'type': 'redirect',
                'leader': self.volatile['leaderId']}
+        
+        ownId = self.volatile['address']  # Assuming this is a tuple, e.g., ('127.0.0.1', 5254)
+        ownRole = self.__class__.__name__
+        peername = protocol.transport.get_extra_info('peername')  # Assuming this returns a tuple, e.g., ('127.0.0.1', 8080)
+
+        logger.debug(
+            'My role is %s. My address is: %s:%s. I am redirecting client %s:%s to leader, who has the id %s',
+            ownRole, ownId[0], ownId[1], peername[0], peername[1], self.volatile['leaderId'])
+        # if I am the leader, change the role to Leader
+        # if ownId == self.volatile['leaderId']:
+        #     logger.debug('I am the leader. Changing role to Leader')
+        #     self.orchestrator.change_state(Leader)
         protocol.send(msg)
-        logger.debug('Redirect client %s:%s to leader',
-                     *protocol.transport.get_extra_info('peername'))
+
 
     def on_client_config(self, protocol, msg):
         """Redirect client to leader upon receiving a client_config message."""
@@ -75,6 +88,9 @@ class State:
     def on_client_get(self, protocol, msg):
         """Return state machine to client."""
         state_machine = self.log.state_machine.data.copy()
+        pdb.set_trace()
+        logger.debug('on_client_get gets called')
+        logger.debug('state_machine:', state_machine)
         self.stats.increment('read')
         protocol.send(state_machine)
 
@@ -226,6 +242,7 @@ class Candidate(Follower):
         self.votes_count += msg['voteGranted']
         logger.info('Vote count: %s', self.votes_count)
         if self.votes_count > len(self.volatile['cluster']) / 2:
+            logger.debug('Converting to Leader, majority reached')
             self.orchestrator.change_state(Leader)
 
 
@@ -276,7 +293,8 @@ class Leader(State):
                    'leaderId': self.volatile['address'],
                    'prevLogIndex': self.nextIndex[peer] - 1,
                    'entries': self.log[self.nextIndex[peer]:
-                                       self.nextIndex[peer] + 100]}
+                                       self.nextIndex[peer] + 100]} #.to_list()
+            # TODO: see it changing it to to_list() breaks the code
             msg.update({'prevLogTerm': self.log.term(msg['prevLogIndex'])})
 
             if self.nextIndex[peer] <= self.log.compacted.index:
@@ -310,6 +328,7 @@ class Leader(State):
 
     def on_client_append(self, protocol, msg):
         """Append new entries to Leader log."""
+        logger.debug("is this function called? like ever?")
         entry = {'term': self.persist['currentTerm'], 'data': msg['data']}
         if msg['data']['key'] == 'cluster':
             protocol.send({'type': 'result', 'success': False})
