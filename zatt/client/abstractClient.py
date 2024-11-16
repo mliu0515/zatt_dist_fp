@@ -11,7 +11,7 @@ class AbstractClient:
 
     def _request(self, message):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(15.0)  # Set a timeout of 5 seconds
+        sock.settimeout(5.0)  # Set a timeout of 5 seconds
         try:
             # print("server_address:", self.server_address)
             pdb.set_trace()
@@ -57,10 +57,9 @@ class AbstractClient:
 
     def _get_state(self):
         """Retrive remote state machine."""
-        self.server_address = tuple(random.choice(self.data['cluster']))
-        # pdb.set_trace()
-        # print("self.server_address:", self.server_address)
-        # print("what the data looks like: ", self.data)
+        if "cluster" in self.data:
+            if not self.server_address:
+                self.server_address = tuple(random.choice(self.data['cluster']))
         return self._request({'type': 'get'})
 
     def _append_log(self, payload):
