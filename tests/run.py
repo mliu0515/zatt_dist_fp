@@ -27,16 +27,16 @@ class BasicTest(unittest.TestCase):
         expected =\
             {'files': 'STUB', 'status': 'Follower',
              'persist': {'votedFor': 'STUB', 'currentTerm': 'STUB'},
-             'volatile': {'leaderId': 'STUB', 'address': ['127.0.0.1', 9110],
-                          'cluster': set((('127.0.0.1', 9112),
-                                          ('127.0.0.1', 9110),
-                                          ('127.0.0.1', 9111)))},
+             'volatile': {'leaderId': 'STUB', 'address': ['127.0.0.1', 5254],
+                          'cluster': set((('127.0.0.1', 5256),
+                                          ('127.0.0.1', 5254),
+                                          ('127.0.0.1', 5255)))},
              'log': {'commitIndex': -1, 'log': {'data': [], 'path': 'STUB'},
                      'state_machine': {'lastApplied': -1, 'data': {}},
                      'compacted': {'count': 0, 'term': None, 'path': 'STUB',
                                    'data': {}}}}
 
-        d = DistributedDict('127.0.0.1', 9110)
+        d = DistributedDict('127.0.0.1', 5254)
         diagnostics = d.diagnostic
         diagnostics['files'] = 'STUB'
         diagnostics['log']['compacted']['path'] = 'STUB'
@@ -50,34 +50,34 @@ class BasicTest(unittest.TestCase):
 
     def test_1_append(self):
         print('Append test')
-        d = DistributedDict('127.0.0.1', 9110)
+        d = DistributedDict('127.0.0.1', 5254)
         d['adams'] = 'the hitchhiker guide'
         del d
         sleep(1)
-        d = DistributedDict('127.0.0.1', 9110)
+        d = DistributedDict('127.0.0.1', 5254)
         self.assertEqual(d['adams'], 'the hitchhiker guide')
 
     def test_2_delete(self):
         print('Delete test')
-        d = DistributedDict('127.0.0.1', 9110)
+        d = DistributedDict('127.0.0.1', 5254)
         d['adams'] = 'the hitchhiker guide'
         del d['adams']
         sleep(1)
-        d = DistributedDict('127.0.0.1', 9110)
+        d = DistributedDict('127.0.0.1', 5254)
         self.assertEqual(d, {})
 
     def test_3_read_from_different_client(self):
         print('Read from different client')
-        d = DistributedDict('127.0.0.1', 9110)
+        d = DistributedDict('127.0.0.1', 5254)
         d['adams'] = 'the hitchhiker guide'
         del d
         sleep(1)
-        d = DistributedDict('127.0.0.1', 9111)
+        d = DistributedDict('127.0.0.1', 5255)
         self.assertEqual(d['adams'], 'the hitchhiker guide')
 
     def test_4_compacted_log_replication(self):
         print('Compacted log replication')
-        d = DistributedDict('127.0.0.1', 9110)
+        d = DistributedDict('127.0.0.1', 5254)
         d['test'] = 0
         d['test'] = 1
         d['test'] = 2
@@ -85,42 +85,42 @@ class BasicTest(unittest.TestCase):
         d['test'] = 4  # compaction kicks in
         del d
         sleep(1)
-        d = DistributedDict('127.0.0.1', 9111)
+        d = DistributedDict('127.0.0.1', 5255)
         self.assertEqual(d, {'test': 4})
 
     def test_5_add_server(self):
         print('Add new server')
-        d = DistributedDict('127.0.0.1', 9110)
+        d = DistributedDict('127.0.0.1', 5254)
         d['test'] = 0
         self.pool.stop(self.pool.ids)
         self.pool.start(self.pool.ids)
 
-        self.pool.configs[10] = {'address': ('127.0.0.1', 9120),
-                                 'cluster': {('127.0.0.1', 9120), },
+        self.pool.configs[10] = {'address': ('127.0.0.1', 5260),
+                                 'cluster': {('127.0.0.1', 5260), },
                                  'storage': '20.persist', 'debug': False}
         self.pool.servers[10] = Process(target=self.pool._run_server,
                                         args=(self.pool.configs[10],))
         self.pool.start(10)
         sleep(1)
 
-        d.config_cluster('add', '127.0.0.1', 9120)
+        d.config_cluster('add', '127.0.0.1', 5260)
         sleep(1)
 
         del d
-        d = DistributedDict('127.0.0.1', 9120)
+        d = DistributedDict('127.0.0.1', 5260)
 
         self.assertEqual(d, {'test': 0})
 
     def test_6_remove_server(self):
         print('Remove server')
-        d = DistributedDict('127.0.0.1', 9110)
-        d.config_cluster('delete', '127.0.0.1', 9111)
+        d = DistributedDict('127.0.0.1', 5254)
+        d.config_cluster('delete', '127.0.0.1', 5255)
         sleep(1)
 
         self.pool.stop(1)
 
         self.assertEqual(set(map(tuple, d.diagnostic['volatile']['cluster'])),
-                         {('127.0.0.1', 9112), ('127.0.0.1', 9110)})
+                         {('127.0.0.1', 5256), ('127.0.0.1', 5254)})
 
 
 if __name__ == '__main__':

@@ -14,11 +14,11 @@ class AbstractClient:
         sock.settimeout(5.0)  # Set a timeout of 5 seconds
         try:
             # print("server_address:", self.server_address)
-            pdb.set_trace()
+            # pdb.set_trace()
             sock.connect(self.server_address)
             print("connected to server_address:", self.server_address)
             # sock.send(msgpack.packb(message, use_bin_type=True))
-            pdb.set_trace() # check the message
+            # pdb.set_trace() # check the message
             # sock.send(pickle.dumps(message))
             sock.send(dill.dumps(message))
 
@@ -36,10 +36,10 @@ class AbstractClient:
                 raise ValueError("No data received from server")
             
             # resp = msgpack.unpackb(buff, raw=False)
-            pdb.set_trace()
+            # pdb.set_trace()
             # resp = pickle.loads(buff)
             resp = dill.loads(buff)
-            pdb.set_trace() # check the repponse
+            # pdb.set_trace() # check the repponse
             # resp = msgpack.unpackb(buff, encoding='utf-8')
         except socket.timeout:
             print('Timeout')
@@ -58,14 +58,14 @@ class AbstractClient:
     def _get_state(self):
         """Retrive remote state machine."""
         if "cluster" in self.data:
-            if not self.server_address:
+            if not hasattr(self, 'server_address'):
                 self.server_address = tuple(random.choice(self.data['cluster']))
         return self._request({'type': 'get'})
 
     def _append_log(self, payload):
         """Append to remote log."""
         print("payload:", payload)
-        pdb.set_trace()
+        # pdb.set_trace()
         return self._request({'type': 'append', 'data': payload})
 
     @property
