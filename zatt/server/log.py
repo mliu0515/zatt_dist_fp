@@ -1,9 +1,11 @@
 import os
 import msgpack
 import collections
+import pdb
 import asyncio
 import logging
 import pickle
+import dill
 from .config import config
 from zatt.server import utils
 
@@ -21,7 +23,8 @@ class Log(collections.UserList):
             logger.debug('Using parameters')
         elif os.path.isfile(self.path):
             # self.data = utils.msgpack_appendable_unpack(self.path)
-            self.data = utils.pickle_appendable_unpack(self.path)
+            # self.data = utils.pickle_appendable_unpack(self.path)
+            self.data = utils.dill_appendable_unpack(self.path)
             logger.debug('Using persisted data')
 
     def append_entries(self, entries, start):
@@ -30,14 +33,16 @@ class Log(collections.UserList):
         else:
             self.data += entries
             # utils.msgpack_appendable_pack(entries, self.path)
-            utils.pickle_appendable_pack(entries, self.path)
+            # utils.pickle_appendable_pack(entries, self.path)
+            utils.dill_appendable_pack(entries, self.path)
 
     def replace(self, new_data):
         if os.path.isfile(self.path):
             os.remove(self.path)
         self.data = new_data
         # utils.msgpack_appendable_pack(self.data, self.path)
-        utils.pickle_appendable_pack(self.data, self.path)
+        # utils.pickle_appendable_pack(self.data, self.path)
+        utils.dill_appendable_pack(self.data, self.path)
     
     def to_list(self):
         print("dfghjkl")
@@ -58,7 +63,8 @@ class Compactor():
         elif os.path.isfile(self.path):
             with open(self.path, 'rb') as f:
                 # self.__dict__.update(msgpack.unpack(f, encoding='utf-8'))
-                self.__dict__.update(pickle.load(f))
+                # self.__dict__.update(pickle.load(f))
+                self.__dict__.update(dill.load(f))
             logger.debug('Using persisted data')
 
     @property
@@ -69,7 +75,8 @@ class Compactor():
         with open(self.path, 'wb+') as f:
             raw = {'count': self.count, 'term': self.term, 'data': self.data}
             # msgpack.pack(raw, f, use_bin_type=True)
-            pickle.dump(raw, f)
+            # pickle.dump(raw, f)
+            dill.dump(raw, f)
 
 
 class DictStateMachine(collections.UserDict):
@@ -129,11 +136,15 @@ class LogManager:
             return self[index]['term']
 
     def append_entries(self, entries, prevLogIndex):
-        self.log.append_entries(entries, prevLogIndex - self.compacted.index)
-        if entries:
-            logger.debug('Appending. New log: %s', self.log.data)
+        try:
+            self.log.append_entries(entries, prevLogIndex - self.compacted.index)
+            if entries:
+                logger.debug('Appending. New log: %s', self.log.data)
+        except Exception as e:
+            return "log.py's append_entries is throwing error" + str(e)
 
     def commit(self, leaderCommit):
+        """Advance commit index to the minimum of leaderCommit and log tip."""
         if leaderCommit <= self.commitIndex:
             return
 

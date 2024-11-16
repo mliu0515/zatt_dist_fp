@@ -1,4 +1,5 @@
 import collections
+import pdb
 from zatt.client.abstractClient import AbstractClient
 from zatt.client.refresh_policies import RefreshPolicyAlways
 
@@ -35,10 +36,12 @@ class DistributedDict(collections.UserDict, AbstractClient):
 
     def refresh(self, force=False):
         if force or self.refresh_policy.can_update():
-            # self.data = self._get_state()
+            self.data = self._get_state()
             # instead of overriding self.data, I should update the dictionary
-            self.data.update(self._get_state())
+            # self.data.update(self._get_state())
             print("self.data:", self.data)
+            # also print out the server address to see what is up
+            pdb.set_trace()
 
     def _append_log(self, payload):
         for attempt in range(self.append_retry_attempts):

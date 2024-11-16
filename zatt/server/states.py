@@ -88,7 +88,6 @@ class State:
     def on_client_get(self, protocol, msg):
         """Return state machine to client."""
         state_machine = self.log.state_machine.data.copy()
-        pdb.set_trace()
         logger.debug('on_client_get gets called')
         logger.debug('state_machine:', state_machine)
         self.stats.increment('read')
@@ -293,8 +292,7 @@ class Leader(State):
                    'leaderId': self.volatile['address'],
                    'prevLogIndex': self.nextIndex[peer] - 1,
                    'entries': self.log[self.nextIndex[peer]:
-                                       self.nextIndex[peer] + 100]} #.to_list()
-            # TODO: see it changing it to to_list() breaks the code
+                                       self.nextIndex[peer] + 100]} 
             msg.update({'prevLogTerm': self.log.term(msg['prevLogIndex'])})
 
             if self.nextIndex[peer] <= self.log.compacted.index:
@@ -311,6 +309,7 @@ class Leader(State):
         self.append_timer = loop.call_later(timeout, self.send_append_entries)
 
     def on_peer_response_append(self, peer, msg):
+        # peer = self.volatile['address'], msg = {'success': True, 'matchIndex': self.log.commitIndex}
         """Handle peer response to append_entries.
         If successful RPC, try to commit new entries.
         If RPC unsuccessful, backtrack."""
@@ -320,23 +319,52 @@ class Leader(State):
 
             self.matchIndex[self.volatile['address']] = self.log.index
             self.nextIndex[self.volatile['address']] = self.log.index + 1
+            # index = statistics.median_low(self.matchIndex.values()) # I feel like this is the problem...
+            # what if I change to mediam_high?
             index = statistics.median_low(self.matchIndex.values())
-            self.log.commit(index)
+            self.log.commit(index) 
             self.send_client_append_response()
         else:
             self.nextIndex[peer] = max(0, self.nextIndex[peer] - 1)
 
     def on_client_append(self, protocol, msg):
         """Append new entries to Leader log."""
-        logger.debug("is this function called? like ever?")
+        # just as a test
+        # protocol.send({'type': 'result', 'success': True, "log_index": self.log.index,
+        #             "term": self.persist['currentTerm'], "volatile_addr": self.volatile['address'],
+        #             "waiting_clients": self.waiting_clients, "commit_index": self.log.commmitIndes,
+        #             'msg': "test"})
+        # 'log, compacted, state_machine, commitIndex'
+        
         entry = {'term': self.persist['currentTerm'], 'data': msg['data']}
         if msg['data']['key'] == 'cluster':
             protocol.send({'type': 'result', 'success': False})
         self.log.append_entries([entry], self.log.index)
+        
+
         if self.log.index in self.waiting_clients:
             self.waiting_clients[self.log.index].append(protocol)
         else:
+            logger.debug("Appending to waiting_clients")
             self.waiting_clients[self.log.index] = [protocol]
+
+        # The following are tests:
+        # waiting_clients = self.waiting_clients if 'waiting_clients' in self.__dict__ else "no waiting clients"
+        # commit_index = self.log.commitIndex if 'commitIndex' in self.log.__dict__ else "no commit index"
+        # logIndex = self.log.index
+        # term = self.persist['currentTerm'] if 'currentTerm' in self.persist else "no current term"
+        # volatile_addr = self.volatile['address'] if 'address' in self.volatile else "no address"
+        # print("waiting_clients:", waiting_clients)
+        # print("commit_index:", commit_index)
+        # print("logIndex:", logIndex)
+        # print("term:", term)
+        # print("volatile_addr:", volatile_addr)
+        
+        # protocol.send({'type': 'result', 'success': True, "log_index": logIndex,
+        #             "term": term, "volatile_addr": volatile_addr, "commit_index": commit_index,
+        #             'msg': "test things out"})
+    
+        # peer = self.volatile['address'], msg = {'success': True, 'matchIndex': self.log.commitIndex}
         self.on_peer_response_append(
             self.volatile['address'], {'success': True,
                                        'matchIndex': self.log.commitIndex})
@@ -344,10 +372,14 @@ class Leader(State):
     def send_client_append_response(self):
         """Respond to client upon commitment of log entries."""
         to_delete = []
+        print("I am at send_client_append_response, here is the log.commitIndex: ", self.log.commitIndex) # 0
+        print("Here is the waiting_clients: ", self.waiting_clients) # 1
+        
+        # commit index is not set correctly..
         for client_index, clients in self.waiting_clients.items():
             if client_index <= self.log.commitIndex:
                 for client in clients:
-                    client.send({'type': 'result', 'success': True})  # TODO
+                    client.send({'type': 'result', 'success': True}) 
                     logger.debug('Sent successful response to client')
                     self.stats.increment('write')
                 to_delete.append(client_index)

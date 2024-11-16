@@ -6,6 +6,7 @@ from .states import Follower
 from .config import config
 from .utils import extended_msgpack_serializer
 import pickle
+import dill
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,8 @@ class Orchestrator():
     def send(self, transport, message):
         # transport.sendto(msgpack.packb(message, use_bin_type=True,
         #                  default=extended_msgpack_serializer))
-        transport.sendto(pickle.dumps(message))
+        # transport.sendto(pickle.dumps(message))
+        transport.sendto(dill.dumps(message))
         
     # I added this lol
     def prepare_message_for_serialization(self, message):
@@ -48,8 +50,10 @@ class Orchestrator():
             # print("type of the message: ", type(message))
             # self.peer_transport.sendto(
             #     msgpack.packb(message, use_bin_type=True), tuple(recipient))
+            # self.peer_transport.sendto(
+            #     pickle.dumps(message), tuple(recipient))
             self.peer_transport.sendto(
-                pickle.dumps(message), tuple(recipient))
+                dill.dumps(message), tuple(recipient))
         # except Exception as e:
         #     print(e)
         #     print("This is the message: ", message)
@@ -73,12 +77,14 @@ class PeerProtocol(asyncio.Protocol):
         if self.first_message:
             # transport.sendto(
             #     msgpack.packb(self.first_message, use_bin_type=True))
-            transport.sendto(pickle.dumps(self.first_message))
+            # transport.sendto(pickle.dumps(self.first_message))
+            transport.sendto(dill.dumps(self.first_message))
 
     def datagram_received(self, data, sender):
         # message = msgpack.unpackb(data, encoding='utf-8')
         # message = msgpack.unpackb(data, raw=False)
-        message = pickle.loads(data)
+        # message = pickle.loads(data)
+        message = dill.loads(data)
         
         self.orchestrator.data_received_peer(sender, message)
 
@@ -98,7 +104,8 @@ class ClientProtocol(asyncio.Protocol):
 
     def data_received(self, data):
         # message = msgpack.unpackb(data, encoding='utf-8')
-        message = pickle.loads(data)
+        # message = pickle.loads(data)
+        message = dill.loads(data)
         self.orchestrator.data_received_client(self, message)
 
     def connection_lost(self, exc):
@@ -108,5 +115,6 @@ class ClientProtocol(asyncio.Protocol):
     def send(self, message):
         # self.transport.write(msgpack.packb(
         #     message, use_bin_type=True, default=extended_msgpack_serializer))
-        self.transport.write(pickle.dumps(message))
+        # self.transport.write(pickle.dumps(message))
+        self.transport.write(dill.dumps(message))
         self.transport.close()

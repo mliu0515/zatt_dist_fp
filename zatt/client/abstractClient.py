@@ -2,6 +2,7 @@ import socket
 import random
 import msgpack
 import pickle
+import dill
 import pdb
 
 class AbstractClient:
@@ -10,15 +11,16 @@ class AbstractClient:
 
     def _request(self, message):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(5.0)  # Set a timeout of 5 seconds
+        sock.settimeout(15.0)  # Set a timeout of 5 seconds
         try:
             # print("server_address:", self.server_address)
+            pdb.set_trace()
             sock.connect(self.server_address)
             print("connected to server_address:", self.server_address)
             # sock.send(msgpack.packb(message, use_bin_type=True))
-            pdb.set_trace()
-            sock.send(pickle.dumps(message))
-            pdb.set_trace()
+            pdb.set_trace() # check the message
+            # sock.send(pickle.dumps(message))
+            sock.send(dill.dumps(message))
 
             buff = bytes()
             while True:
@@ -34,7 +36,10 @@ class AbstractClient:
                 raise ValueError("No data received from server")
             
             # resp = msgpack.unpackb(buff, raw=False)
-            resp = pickle.loads(buff)
+            pdb.set_trace()
+            # resp = pickle.loads(buff)
+            resp = dill.loads(buff)
+            pdb.set_trace() # check the repponse
             # resp = msgpack.unpackb(buff, encoding='utf-8')
         except socket.timeout:
             print('Timeout')
@@ -53,6 +58,7 @@ class AbstractClient:
     def _get_state(self):
         """Retrive remote state machine."""
         self.server_address = tuple(random.choice(self.data['cluster']))
+        # pdb.set_trace()
         # print("self.server_address:", self.server_address)
         # print("what the data looks like: ", self.data)
         return self._request({'type': 'get'})
@@ -60,6 +66,7 @@ class AbstractClient:
     def _append_log(self, payload):
         """Append to remote log."""
         print("payload:", payload)
+        pdb.set_trace()
         return self._request({'type': 'append', 'data': payload})
 
     @property
