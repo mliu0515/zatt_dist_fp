@@ -286,6 +286,7 @@ class Leader(State):
         for peer in self.volatile['cluster']:
             if peer == self.volatile['address']:
                 continue
+            
             msg = {'type': 'append_entries',
                    'term': self.persist['currentTerm'],
                    'leaderCommit': self.log.commitIndex,
@@ -295,11 +296,15 @@ class Leader(State):
                                        self.nextIndex[peer] + 100]} 
             msg.update({'prevLogTerm': self.log.term(msg['prevLogIndex'])})
 
+            # There are some issue with how the entreis are sliced.. TODO: fix this
+
             if self.nextIndex[peer] <= self.log.compacted.index:
                 msg.update({'compact_data': self.log.compacted.data,
                             'compact_term': self.log.compacted.term,
                             'compact_count': self.log.compacted.count})
-
+            # logger.debug("self.nextIndex[peer] is: %s", self.nextIndex[peer])
+            # logger.debug("leader's log data: %s ", self.log.log.data)
+            # logger.debug("the entries are: %s", msg['entries'])
             logger.debug('Sending %s entries to %s. Start index %s',
                          len(msg['entries']), peer, self.nextIndex[peer])
             self.orchestrator.send_peer(peer, msg)
@@ -341,7 +346,6 @@ class Leader(State):
             protocol.send({'type': 'result', 'success': False})
         self.log.append_entries([entry], self.log.index)
         
-
         if self.log.index in self.waiting_clients:
             self.waiting_clients[self.log.index].append(protocol)
         else:
@@ -372,8 +376,8 @@ class Leader(State):
     def send_client_append_response(self):
         """Respond to client upon commitment of log entries."""
         to_delete = []
-        print("I am at send_client_append_response, here is the log.commitIndex: ", self.log.commitIndex) # 0
-        print("Here is the waiting_clients: ", self.waiting_clients) # 1
+        # print("I am at send_client_append_response, here is the log.commitIndex: ", self.log.commitIndex) # 0
+        # print("Here is the waiting_clients: ", self.waiting_clients) # 1
         
         # commit index is not set correctly..
         for client_index, clients in self.waiting_clients.items():

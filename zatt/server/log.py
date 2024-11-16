@@ -34,6 +34,7 @@ class Log(collections.UserList):
             self.data += entries
             # utils.msgpack_appendable_pack(entries, self.path)
             # utils.pickle_appendable_pack(entries, self.path)
+            print("entries:", entries.data[:])
             utils.dill_appendable_pack(entries, self.path)
 
     def replace(self, new_data):
@@ -112,11 +113,16 @@ class LogManager:
         """Get item or slice from the log, based on absolute log indexes.
         Item(s) already compacted cannot be requested."""
         if type(index) is slice:
+            # logger.debug('Slicing log: %s', index)
+            # logger.debug("log being sliced: %s", self.log.data)
             start = index.start - self.compacted.count if index.start else None
             stop = index.stop - self.compacted.count if index.stop else None
-            return self.log[start:stop:index.step]
+            # logger.debug("log after slicing: %s", self.log[start:stop:index.step])
+            # lmao? return self.log[start:stop:index.step]
+            return self.log.data[start:stop:index.step]
         elif type(index) is int:
-            return self.log[index - self.compacted.count]
+            # old bug: return self.log[index - self.compacted.count]
+            return self.log.data[index - self.compacted.count]
 
     @property
     def index(self):
