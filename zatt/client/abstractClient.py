@@ -25,7 +25,7 @@ class AbstractClient:
             # Sign the message here
             message = {'message': message, 
                        'signature': self._sign_message(dill.dumps(message)), 
-                       'public_key': self.public_key.public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKey)}
+                       'public_key': self.public_key.public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)}
             sock.send(dill.dumps(message))
 
             buff = bytes()
@@ -68,6 +68,7 @@ class AbstractClient:
             key_size=2048
         )
         self.public_key = self.private_key.public_key()
+        return self.private_key, self.public_key
     
     def _sign_message(self, message):
         """Sign the message."""

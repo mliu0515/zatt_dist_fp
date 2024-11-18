@@ -2,6 +2,10 @@ import collections
 import pdb
 from zatt.client.abstractClient import AbstractClient
 from zatt.client.refresh_policies import RefreshPolicyAlways
+# import encryption stuff
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import utils
 
 
 
@@ -43,11 +47,21 @@ class DistributedDict(collections.UserDict, AbstractClient):
         Args:
             force (bool, optional): _description_. Defaults to False.
         """
+        if force or not (self.private_key and self.public_key):
+            self.private_key, self.public_key = self._set_encryption_keys()
+            # publicKeyStrForTesting = self.public_key.public_bytes(
+            #     encoding=serialization.Encoding.PEM,
+            #     format=serialization.PublicFormat.SubjectPublicKeyInfo
+            # ).decode('utf-8')
+            # privateKeyStrForTesting = self.private_key.private_bytes(
+            #     encoding=serialization.Encoding.PEM,
+            #     format=serialization.PrivateFormat.PKCS8,
+            #     encryption_algorithm=serialization.NoEncryption()
+            # ).decode('utf-8')
+            # print(f"successfully set up keys, the public key is: {publicKeyStrForTesting}, and the private key is: {privateKeyStrForTesting}")
         if force or self.refresh_policy.can_update():
             self.data = self._get_state()
-        if not self.private_key or not self.public_key:
-            self.private_key, self.public_key = self._set_encryption_keys()
-
+    
     def _append_log(self, payload):
         for attempt in range(self.append_retry_attempts):
             response = super()._append_log(payload)
