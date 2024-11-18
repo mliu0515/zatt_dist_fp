@@ -18,13 +18,14 @@ class AbstractClient:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(5.0)  # Set a timeout of 5 seconds
         try:
-            # print("server_address:", self.server_address)
             # pdb.set_trace()
             sock.connect(self.server_address)
             print("connected to server_address:", self.server_address)
             # sock.send(msgpack.packb(message, use_bin_type=True))
-            # pdb.set_trace() # check the message
-            # sock.send(pickle.dumps(message))
+            # Sign the message here
+            message = {'message': message, 
+                       'signature': self._sign_message(dill.dumps(message)), 
+                       'public_key': self.public_key.public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKey)}
             sock.send(dill.dumps(message))
 
             buff = bytes()
@@ -33,19 +34,12 @@ class AbstractClient:
                 if not block:
                     break
                 buff += block
-            # resp = msgpack.unpackb(buff, encoding='utf-8')
-            # print("Received buffer length:", len(buff))
-            # print("Received buffer content:", buff)
 
             if not buff:
                 raise ValueError("No data received from server")
             
             # resp = msgpack.unpackb(buff, raw=False)
-            # pdb.set_trace()
-            # resp = pickle.loads(buff)
             resp = dill.loads(buff)
-            # pdb.set_trace() # check the repponse
-            # resp = msgpack.unpackb(buff, encoding='utf-8')
         except socket.timeout:
             print('Timeout')
         finally:
@@ -53,10 +47,6 @@ class AbstractClient:
         if 'type' in resp and resp['type'] == 'redirect':
             self.server_address = tuple(resp['leader'])
             print("current leader:", self.server_address)
-            # something is wrong with the server. It keeps redirecting for some reason
-            # It keeps redirecting to itself. I found the bug:
-            # debug message: My role is Follower. My address is: 127.0.0.1:5254. I am redirecting client 127.0.0.1:57603 to leader, who has the id ('127.0.0.1', 5254)
-            # which means leader's type is not changed to Leader. It is still Follower. I need to fix this.
             resp = self._request(message)
         return resp
 
@@ -69,8 +59,6 @@ class AbstractClient:
 
     def _append_log(self, payload):
         """Append to remote log."""
-        print("payload:", payload)
-        # pdb.set_trace()
         return self._request({'type': 'append', 'data': payload})
 
     def _set_encryption_keys(self):
@@ -80,6 +68,17 @@ class AbstractClient:
             key_size=2048
         )
         self.public_key = self.private_key.public_key()
+    
+    def _sign_message(self, message):
+        """Sign the message."""
+        return self.private_key.sign(
+            message,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
 
     @property
     def diagnostic(self):
