@@ -4,6 +4,7 @@ from zatt.client.abstractClient import AbstractClient
 from zatt.client.refresh_policies import RefreshPolicyAlways
 
 
+
 class DistributedDict(collections.UserDict, AbstractClient):
     """Client for zatt instances with dictionary based state machines."""
     def __init__(self, addr, port, append_retry_attempts=3,
@@ -35,13 +36,17 @@ class DistributedDict(collections.UserDict, AbstractClient):
         return super().__repr__()
 
     def refresh(self, force=False):
+        """_summary_
+            This refresh function does a bunch of things:
+            1. If no server_address, set the server_address to a random server in the cluster
+            2. Additional for FP: set up the public and private keys of the client here, if not already set
+        Args:
+            force (bool, optional): _description_. Defaults to False.
+        """
         if force or self.refresh_policy.can_update():
             self.data = self._get_state()
-            # instead of overriding self.data, I should update the dictionary
-            # self.data.update(self._get_state())
-            print("self.data:", self.data)
-            # also print out the server address to see what is up
-            # pdb.set_trace()
+        if not self.private_key or not self.public_key:
+            self.private_key, self.public_key = self._set_encryption_keys()
 
     def _append_log(self, payload):
         for attempt in range(self.append_retry_attempts):

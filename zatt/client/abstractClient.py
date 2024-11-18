@@ -4,6 +4,11 @@ import msgpack
 import pickle
 import dill
 import pdb
+# import encryption stuff
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import utils
+
 
 class AbstractClient:
     """Abstract client. Contains primitives for implementing functioning
@@ -67,6 +72,14 @@ class AbstractClient:
         print("payload:", payload)
         # pdb.set_trace()
         return self._request({'type': 'append', 'data': payload})
+
+    def _set_encryption_keys(self):
+        """Get encryption keys."""
+        self.private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048
+        )
+        self.public_key = self.private_key.public_key()
 
     @property
     def diagnostic(self):
