@@ -24,7 +24,7 @@ class AbstractClient:
             leaderResp = self._send_to_leader(sock, message, self.currLeader)
             followersResp = []
             for f in self.followers:
-                followersResp.append(self._send_to_follower(sock, message, f))
+                followersResp.append(self._send_to_follower(sock, f))
 
         except socket.timeout:
             print('Timeout')
@@ -37,8 +37,6 @@ class AbstractClient:
         return resp
 
     def _send_to_leader(self, sock, message, leaderAddr):
-        # sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # sock.settimeout(5.0)
         try:
             sock.connect(leaderAddr)
             message = {'message': message, 
@@ -61,10 +59,8 @@ class AbstractClient:
             sock.close()
         return resp
     
-    def _send_to_follower(self, sock, message, followerAddr):
+    def _send_to_follower(self, sock, followerAddr):
         # to the follower, only send the public key, no message
-        # sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        # sock.settimeout(5.0)
         try:
             sock.connect(followerAddr)
             message = {'public_key': self.public_key.public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)}
@@ -82,7 +78,6 @@ class AbstractClient:
             print('Timeout')
         finally:
             sock.close()
-
     
 
     def _get_state(self):
