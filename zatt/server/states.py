@@ -2,6 +2,7 @@ import asyncio
 import logging
 import statistics
 import pdb
+import dill
 from random import randrange
 from os.path import join
 from .utils import PersistentDict, TallyCounter
@@ -10,6 +11,7 @@ from .config import config
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import utils
+from cryptography.hazmat.backends import default_backend
 
 
 logger = logging.getLogger(__name__)
@@ -62,12 +64,13 @@ class State:
         method = getattr(self, 'on_client_' + msg['message']['type'], None)
         # TODO: Fix this one. It's now a dummy function.
         if 'signature' in msg:
-            # self._verify_signature(msg['message'], msg['signature'], msg['public_key'])
             if not self._verify_signature(msg['message'], msg['signature'], msg['public_key']):
                 logger.error('Signature verification failed')
                 protocol.send({'type': 'result', 'success': False, 'additional_msg': 'Signature verification failed'})
                 return
         logger.debug("verify signature passed")
+        protocol.send({'type': 'result', 'success': False, 'additional_msg': 'Signature verification passed'})
+        return 
         # TODO: do I have to fix the msg content?? Not sure. Too hungry to think about it...
         if method:
             method(protocol, msg)
@@ -135,19 +138,37 @@ class State:
         self.volatile['cluster'] = tuple(map(tuple, self.volatile['cluster']))
     
     def _verify_signature(self, message, signature, public_key):
-        return False
-        public_key = serialization.load_pem_public_key(public_key, backend=None)
-        public_key.verify(
-            signature,
-            message,
-            padding.PSS(
-                mgf=padding.MGF1(hashes.SHA256()),
-                salt_length=padding.PSS.MAX_LENGTH
-            ),
-            hashes.SHA256()
-        )
-        return True
+        """_summary_
 
+        Args:
+            message (_type_): the message to be verified
+            signature (_type_): the signature to be verified
+            public_key (_type_): the public key to be used for verification
+
+        Returns:
+            _type_: False if the signature is invalid, true otherwise
+        """
+        try:
+            logger.debug("message is: %s", message)
+            logger.debug("signature is: %s", signature)
+            logger.debug("public_key is: %s", public_key)
+            # currently message is of type dict. I need to convert it to bytes
+            msgBytes = dill.dumps(message)
+            public_key = serialization.load_pem_public_key(public_key, backend=default_backend())
+            public_key.verify(
+                signature,
+                msgBytes,
+                padding.PSS(
+                    mgf=padding.MGF1(hashes.SHA256()),
+                    salt_length=padding.PSS.MAX_LENGTH
+                ),
+                hashes.SHA256()
+            )
+            return True
+        except Exception as e:
+            logger.error('Error verifying signature: %s', e)
+            return False
+       
 
 class Follower(State):
     """Follower state."""
