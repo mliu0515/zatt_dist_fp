@@ -20,7 +20,7 @@ class AbstractClient:
         try:
             # pdb.set_trace()
             # TODO: client talks to everyone. Need to test this to see if it works
-            # TODO: Also need to add the backend feature
+            # TODO: Also need to add the sever modifications
             leaderResp = self._send_to_leader(sock, message, self.currLeader)
             followersResp = []
             for f in self.followers:
