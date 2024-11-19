@@ -26,7 +26,10 @@ class AbstractClient:
             message = {'message': message, 
                        'signature': self._sign_message(dill.dumps(message)), 
                        'public_key': self.public_key.public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)}
+            print("message:", message)
+            pdb.set_trace()
             sock.send(dill.dumps(message))
+            pdb.set_trace()
 
             buff = bytes()
             while True:
@@ -39,7 +42,9 @@ class AbstractClient:
                 raise ValueError("No data received from server")
             
             # resp = msgpack.unpackb(buff, raw=False)
+            pdb.set_trace()
             resp = dill.loads(buff)
+            pdb.set_trace()
         except socket.timeout:
             print('Timeout')
         finally:

@@ -7,6 +7,9 @@ from os.path import join
 from .utils import PersistentDict, TallyCounter
 from .log import LogManager
 from .config import config
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import utils
 
 
 logger = logging.getLogger(__name__)
@@ -55,7 +58,17 @@ class State:
     def data_received_client(self, protocol, msg):
         """Receive client messages from orchestrator and pass them to the
         appropriate method."""
-        method = getattr(self, 'on_client_' + msg['type'], None)
+        # logger.debug('what the hell is this msg: %s', msg['message'])
+        method = getattr(self, 'on_client_' + msg['message']['type'], None)
+        # TODO: Fix this one. It's now a dummy function.
+        if 'signature' in msg:
+            # self._verify_signature(msg['message'], msg['signature'], msg['public_key'])
+            if not self._verify_signature(msg['message'], msg['signature'], msg['public_key']):
+                logger.error('Signature verification failed')
+                protocol.send({'type': 'result', 'success': False, 'additional_msg': 'Signature verification failed'})
+                return
+        logger.debug("verify signature passed")
+        # TODO: do I have to fix the msg content?? Not sure. Too hungry to think about it...
         if method:
             method(protocol, msg)
         else:
@@ -120,6 +133,20 @@ class State:
             if entry['data']['key'] == 'cluster':
                 self.volatile['cluster'] = entry['data']['value']
         self.volatile['cluster'] = tuple(map(tuple, self.volatile['cluster']))
+    
+    def _verify_signature(self, message, signature, public_key):
+        return False
+        public_key = serialization.load_pem_public_key(public_key, backend=None)
+        public_key.verify(
+            signature,
+            message,
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH
+            ),
+            hashes.SHA256()
+        )
+        return True
 
 
 class Follower(State):
