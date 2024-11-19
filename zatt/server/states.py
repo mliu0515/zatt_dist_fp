@@ -108,12 +108,13 @@ class State:
         return self.on_client_append(protocol, msg)
 
     def on_client_get(self, protocol, msg):
-        """Return state machine to client."""
+        """Return state machine as wel as the cluster information to the client."""
         state_machine = self.log.state_machine.data.copy()
         logger.debug('on_client_get gets called')
         logger.debug('state_machine:', state_machine)
         self.stats.increment('read')
-        protocol.send(state_machine)
+        res = {"state_machine": state_machine, 'cluster': self.volatile['cluster'], 'leader': self.volatile['leaderId']}
+        protocol.send(res)
 
     def on_client_diagnostic(self, protocol, msg):
         """Return internal state to client."""
@@ -155,7 +156,7 @@ class State:
             _type_: False if the signature is invalid, true otherwise
         """
         # for testing purpose
-        return False
+        return True
         try:
             logger.debug("message is: %s", message)
             logger.debug("signature is: %s", signature)
@@ -323,9 +324,9 @@ class Leader(State):
                 self.log.index)
             self.log.commit(self.log.index)
 
-    def data_received_client(self, protocol, msg):
-        # TODO: For now, it's calling the parent method. Override the parent method
-        super.data_received_client(protocol, msg)
+    # def data_received_client(self, protocol, msg):
+    #     # TODO: For now, it's calling the parent method. Override the parent method
+    #     super.data_received_client(protocol, msg)
         
 
     def teardown(self):

@@ -18,7 +18,9 @@ class DistributedDict(collections.UserDict, AbstractClient):
         print("self.data['cluster']:", self.data['cluster'])
         self.append_retry_attempts = append_retry_attempts
         self.refresh_policy = refresh_policy
+        pdb.set_trace()
         self.refresh(force=True)
+        pdb.set_trace()
 
     def __getitem__(self, key):
         self.refresh()
@@ -44,6 +46,7 @@ class DistributedDict(collections.UserDict, AbstractClient):
             This refresh function does a bunch of things:
             1. If no server_address, set the server_address to a random server in the cluster
             2. Additional for FP: set up the public and private keys of the client here, if not already set
+            3. Client should know who is the current leader, and what are the other servers in the cluster
         Args:
             force (bool, optional): _description_. Defaults to False.
         """
@@ -61,6 +64,11 @@ class DistributedDict(collections.UserDict, AbstractClient):
             # print(f"successfully set up keys, the public key is: {publicKeyStrForTesting}, and the private key is: {privateKeyStrForTesting}")
         if force or self.refresh_policy.can_update():
             self.data = self._get_state()
+        if "leader" in self.data:
+            self.currLeader = tuple(self.data['leader'])
+        if "cluster" in self.data: 
+            self.followers = [server for server in self.data['cluster'] if server != self.currLeader]
+        
     
     def _append_log(self, payload):
         for attempt in range(self.append_retry_attempts):
