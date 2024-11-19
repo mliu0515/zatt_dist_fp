@@ -78,7 +78,7 @@ class AbstractClient:
             print('Timeout')
         finally:
             sock.close()
-    
+        return resp
 
     def _get_state(self):
         """Retrive remote state machine."""
