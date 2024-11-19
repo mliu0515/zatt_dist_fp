@@ -19,30 +19,13 @@ class AbstractClient:
         sock.settimeout(5.0)  # Set a timeout of 5 seconds
         try:
             # pdb.set_trace()
-            # TODO: to the leader
-            sock.connect(self.server_address)
-            print("connected to server_address:", self.server_address)
-            # sock.send(msgpack.packb(message, use_bin_type=True))
-            # Sign the message here
-            message = {'message': message, 
-                       'signature': self._sign_message(dill.dumps(message)), 
-                       'public_key': self.public_key.public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)}
-            sock.send(dill.dumps(message))
+            # TODO: client talks to everyone. Need to test this to see if it works
+            # TODO: Also need to add the backend feature
+            leaderResp = self._send_to_leader(sock, message, self.currLeader)
+            followersResp = []
+            for f in self.followers:
+                followersResp.append(self._send_to_follower(sock, message, f))
 
-            buff = bytes()
-            while True:
-                block = sock.recv(128)
-                if not block:
-                    break
-                buff += block
-
-            if not buff:
-                raise ValueError("No data received from server")
-            
-            # resp = msgpack.unpackb(buff, raw=False)
-            pdb.set_trace()
-            resp = dill.loads(buff)
-            pdb.set_trace()
         except socket.timeout:
             print('Timeout')
         finally:
@@ -53,9 +36,9 @@ class AbstractClient:
             resp = self._request(message)
         return resp
 
-    def _send_to_leader(self, message, leaderAddr):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(5.0)
+    def _send_to_leader(self, sock, message, leaderAddr):
+        # sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # sock.settimeout(5.0)
         try:
             sock.connect(leaderAddr)
             message = {'message': message, 
@@ -78,10 +61,10 @@ class AbstractClient:
             sock.close()
         return resp
     
-    def _send_to_follower(self, message, followerAddr):
+    def _send_to_follower(self, sock, message, followerAddr):
         # to the follower, only send the public key, no message
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(5.0)
+        # sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # sock.settimeout(5.0)
         try:
             sock.connect(followerAddr)
             message = {'public_key': self.public_key.public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)}
