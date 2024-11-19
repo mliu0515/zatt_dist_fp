@@ -38,6 +38,9 @@ class State:
             self.log = LogManager()
             self._update_cluster()
         self.stats = TallyCounter(['read', 'write', 'append'])
+        # add the blackList field in persistant storage, if it does not exist
+        if 'blackList' not in self.persist:
+            self.persist['blackList'] = []
 
     def data_received_peer(self, peer, msg):
         """Receive peer messages from orchestrator and pass them to the
@@ -62,15 +65,18 @@ class State:
         appropriate method."""
         # logger.debug('what the hell is this msg: %s', msg['message'])
         method = getattr(self, 'on_client_' + msg['message']['type'], None)
-        # TODO: Fix this one. It's now a dummy function.
+        # TODO: Fix this one. Verification shouldn't be done here
         if 'signature' in msg:
             if not self._verify_signature(msg['message'], msg['signature'], msg['public_key']):
+                # add the client to the blackList
+                blackListItem = protocol.transport.get_extra_info('peername')
+                self.persist['blackList'].append(blackListItem)
                 logger.error('Signature verification failed')
-                protocol.send({'type': 'result', 'success': False, 'additional_msg': 'Signature verification failed'})
+                protocol.send({'type': 'result', 'success': False, 'additional_msg': f'faulty node: {blackListItem}'})
                 return
         logger.debug("verify signature passed")
-        protocol.send({'type': 'result', 'success': False, 'additional_msg': 'Signature verification passed'})
-        return 
+        # protocol.send({'type': 'result', 'success': False, 'additional_msg': 'Signature verification passed'})
+        # return 
         # TODO: do I have to fix the msg content?? Not sure. Too hungry to think about it...
         if method:
             method(protocol, msg)
@@ -148,6 +154,8 @@ class State:
         Returns:
             _type_: False if the signature is invalid, true otherwise
         """
+        # for testing purpose
+        return False
         try:
             logger.debug("message is: %s", message)
             logger.debug("signature is: %s", signature)
@@ -314,6 +322,11 @@ class Leader(State):
                          'action': 'change'}}],
                 self.log.index)
             self.log.commit(self.log.index)
+
+    def data_received_client(self, protocol, msg):
+        # TODO: For now, it's calling the parent method. Override the parent method
+        super.data_received_client(protocol, msg)
+        
 
     def teardown(self):
         """Stop timers before changing state."""
