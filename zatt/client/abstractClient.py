@@ -30,11 +30,11 @@ class AbstractClient:
             print('Timeout')
         finally:
             sock.close()
-        if 'type' in resp and resp['type'] == 'redirect':
-            self.server_address = tuple(resp['leader'])
+        if 'type' in leaderResp and leaderResp['type'] == 'redirect':
+            self.server_address = tuple(leaderResp['leader'])
             print("current leader:", self.server_address)
-            resp = self._request(message)
-        return resp
+            leaderResp = self._request(message)
+        return {"leaderResp": leaderResp, "followersResp": followersResp}
 
     def _send_to_leader(self, sock, message, leaderAddr):
         try:
