@@ -47,6 +47,17 @@ class State:
         appropriate method."""
         logger.debug('Received %s from %s', msg['type'], peer)
 
+        # # TODO: Fix this one. I direclty copied from the client code.
+        # if 'signature' in msg:
+        #     if not self._verify_signature(msg['message'], msg['signature'], msg['public_key']):
+        #         # add the client to the blackList
+        #         blackListItem = protocol.transport.get_extra_info('peername')
+        #         self.persist['blackList'].append(blackListItem)
+        #         logger.error('Signature verification failed')
+        #         protocol.send({'type': 'result', 'success': False, 'additional_msg': f'faulty node: {blackListItem}'})
+        #         return
+        # logger.debug("verify signature passed")
+
         if self.persist['currentTerm'] < msg['term']:
             self.persist['currentTerm'] = msg['term']
             if not type(self) is Follower:
@@ -64,25 +75,31 @@ class State:
         """Receive client messages from orchestrator and pass them to the
         appropriate method."""
         # logger.debug('what the hell is this msg: %s', msg['message'])
-        method = getattr(self, 'on_client_' + msg['message']['type'], None)
-        # TODO: Fix this one. Verification shouldn't be done here
-        if 'signature' in msg:
-            if not self._verify_signature(msg['message'], msg['signature'], msg['public_key']):
-                # add the client to the blackList
-                blackListItem = protocol.transport.get_extra_info('peername')
-                self.persist['blackList'].append(blackListItem)
-                logger.error('Signature verification failed')
-                protocol.send({'type': 'result', 'success': False, 'additional_msg': f'faulty node: {blackListItem}'})
-                return
-        logger.debug("verify signature passed")
-        # protocol.send({'type': 'result', 'success': False, 'additional_msg': 'Signature verification passed'})
-        # return 
-        # TODO: do I have to fix the msg content?? Not sure. Too hungry to think about it...
-        if method:
-            method(protocol, msg)
-        else:
-            logger.info('Unrecognized message from %s: %s',
-                        protocol.transport.get_extra_info('peername'), msg)
+        # assert that "public_key" is in msg
+        # if the msg type is get
+        if msg['type'] == 'get':
+            self.on_client_get(protocol, msg)
+            return
+        logger.debug("my role is: %s, I have received request from the client.", self.__class__.__name__)
+        if 'public_key' not in msg:
+            logger.error('public_key not in msg')
+            protocol.send({'type': 'result', 'success': False, 'additional_msg': 'public_key not in msg'})
+            return
+        # store the public key in the volatile state
+        self.volatile['public_key'] = msg['public_key']
+        logger.debug('stored public_key to volatile. public_key is: %s', self.volatile['public_key'])
+        protocol.send({'type': 'result', 'success': True, 'additional_msg': 'public_key stored to volatile'})
+        return
+
+        # method = getattr(self, 'on_client_' + msg['message']['type'], None)
+        # # protocol.send({'type': 'result', 'success': False, 'additional_msg': 'Signature verification passed'})
+        # # return 
+        # # TODO: do I have to fix the msg content?? Not sure. Too hungry to think about it...
+        # if method:
+        #     method(protocol, msg)
+        # else:
+        #     logger.info('Unrecognized message from %s: %s',
+        #                 protocol.transport.get_extra_info('peername'), msg)
 
     def on_client_append(self, protocol, msg):
         """Redirect client to leader upon receiving a client_append message."""
@@ -324,10 +341,25 @@ class Leader(State):
                 self.log.index)
             self.log.commit(self.log.index)
 
-    # def data_received_client(self, protocol, msg):
-    #     # TODO: For now, it's calling the parent method. Override the parent method
-    #     super.data_received_client(protocol, msg)
-        
+    # override the method in the parent class
+    def data_received_client(self, protocol, msg):
+        """Receive client messages from orchestrator and pass them to the
+        appropriate method."""
+        logger.debug('I am a leader, and I have received request from the client.')
+        if msg['type'] == 'get':
+            logger.debug("calling on_client_get")
+            self.on_client_get(protocol, msg)
+            return
+        method = getattr(self, 'on_client_' + msg['message']['type'], None)
+        # protocol.send({'type': 'result', 'success': False, 'additional_msg': 'Signature verification passed'})
+        # return 
+        # TODO: do I have to fix the msg content?? Not sure. Too hungry to think about it...
+        if method:
+            logger.debug('I am calling the method: %s', method)
+            method(protocol, msg)
+        else:
+            logger.info('Unrecognized message from %s: %s',
+                        protocol.transport.get_extra_info('peername'), msg)
 
     def teardown(self):
         """Stop timers before changing state."""

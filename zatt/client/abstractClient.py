@@ -15,70 +15,76 @@ class AbstractClient:
     clients."""
 
     def _request(self, message):
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(5.0)  # Set a timeout of 5 seconds
         try:
-            # pdb.set_trace()
-            # TODO: client talks to everyone. Need to test this to see if it works
-            # TODO: Also need to add the sever modifications
-            leaderResp = self._send_to_leader(sock, message, self.currLeader)
-            followersResp = []
-            for f in self.followers:
-                followersResp.append(self._send_to_follower(sock, f))
-
+            if message['type'] == 'get':
+                pdb.set_trace()
+                return self._handle_get_request(message)
+            else:
+                return self._handle_set_request(message)
         except socket.timeout:
             print('Timeout')
-        finally:
-            sock.close()
-        if 'type' in leaderResp and leaderResp['type'] == 'redirect':
-            self.server_address = tuple(leaderResp['leader'])
-            print("current leader:", self.server_address)
-            leaderResp = self._request(message)
-        return {"leaderResp": leaderResp, "followersResp": followersResp}
-
-    def _send_to_leader(self, sock, message, leaderAddr):
-        try:
-            sock.connect(leaderAddr)
-            message = {'message': message, 
-                       'signature': self._sign_message(dill.dumps(message)), 
-                       'public_key': self.public_key.public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)}
-            print("message:", message)
-            sock.send(dill.dumps(message))
-            buff = bytes()
-            while True:
-                block = sock.recv(128)
-                if not block:
-                    break
-                buff += block
-            if not buff:
-                raise ValueError("No data received from server")
-            resp = dill.loads(buff)
-        except socket.timeout:
-            print('Timeout')
-        finally:
-            sock.close()
-        return resp
+        except Exception as e:
+            print(f"Exception: {e}")
     
-    def _send_to_follower(self, sock, followerAddr):
-        # to the follower, only send the public key, no message
+    def _handle_get_request(self, message):
+        pdb.set_trace()
+        response = self._send_to_server(self.server_address, message)
+        pdb.set_trace()
+        if 'type' in response and response['type'] == 'redirect':
+            self.server_address = tuple(response['leader'])
+            print("current leader:", self.server_address)
+            return self._handle_get_request(message)
+        pdb.set_trace()
+        return response
+
+    def _handle_set_request(self, message):
+        leader_response = self._send_to_leader(message, self.currLeader)
+        followers_response = [self._send_to_follower(follower) for follower in self.followers]
+        return {"leaderResp": leader_response, "followersResp": followers_response}
+
+    def _send_to_server(self, address, message):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(5.0)
         try:
-            sock.connect(followerAddr)
-            message = {'public_key': self.public_key.public_bytes(encoding=serialization.Encoding.PEM, format=serialization.PublicFormat.SubjectPublicKeyInfo)}
+            sock.connect(address)
             sock.send(dill.dumps(message))
-            buff = bytes()
-            while True:
-                block = sock.recv(128)
-                if not block:
-                    break
-                buff += block
-            if not buff:
-                raise ValueError("No data received from server")
-            resp = dill.loads(buff)
-        except socket.timeout:
-            print('Timeout')
+            return self._receive_response(sock)
         finally:
             sock.close()
-        return resp
+
+    def _send_to_leader(self, message, leaderAddr):
+        print("sending to leader function got called")
+        signed_message = {
+            'message': message,
+            'signature': self._sign_message(dill.dumps(message)),
+            'public_key': self.public_key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo
+            )
+        }
+        return self._send_to_server(leaderAddr, signed_message)
+    
+    def _send_to_follower(self, followerAddr):
+        # to the follower, only send the public key, no message
+        print("sending to follower function got called")
+        public_key_message = {
+            'public_key': self.public_key.public_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PublicFormat.SubjectPublicKeyInfo
+            )
+        }
+        return self._send_to_server(followerAddr, public_key_message)
+    
+    def _receive_response(self, sock):
+        buff = bytes()
+        while True:
+            block = sock.recv(128)
+            if not block:
+                break
+            buff += block
+        if not buff:
+            raise ValueError("No data received from server")
+        return dill.loads(buff)
 
     def _get_state(self):
         """Retrive remote state machine."""
