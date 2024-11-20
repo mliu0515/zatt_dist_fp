@@ -77,7 +77,7 @@ class State:
         # logger.debug('what the hell is this msg: %s', msg['message'])
         # assert that "public_key" is in msg
         # if the msg type is get
-        if msg['type'] == 'get':
+        if 'type' in msg and msg['type'] == 'get':
             self.on_client_get(protocol, msg)
             return
         logger.debug("my role is: %s, I have received request from the client.", self.__class__.__name__)
@@ -86,23 +86,23 @@ class State:
             protocol.send({'type': 'result', 'success': False, 'additional_msg': 'public_key not in msg'})
             return
         # store the public key in the volatile state
+        method = getattr(self, 'on_client_' + msg['message']['type'], None)
+        if method:
+            method(protocol, msg)
+        else:
+            logger.info('Unrecognized message from %s: %s',
+                        protocol.transport.get_extra_info('peername'), msg)
+        return
+
+    def on_client_append(self, protocol, msg):
+        # """Redirect client to leader upon receiving a client_append message."""
+        """ When client talks to follower, it only contains the public key.
+            Thus we store this public key in the volatile state.
+        """
         self.volatile['public_key'] = msg['public_key']
         logger.debug('stored public_key to volatile. public_key is: %s', self.volatile['public_key'])
         protocol.send({'type': 'result', 'success': True, 'additional_msg': 'public_key stored to volatile'})
         return
-
-        # method = getattr(self, 'on_client_' + msg['message']['type'], None)
-        # # protocol.send({'type': 'result', 'success': False, 'additional_msg': 'Signature verification passed'})
-        # # return 
-        # # TODO: do I have to fix the msg content?? Not sure. Too hungry to think about it...
-        # if method:
-        #     method(protocol, msg)
-        # else:
-        #     logger.info('Unrecognized message from %s: %s',
-        #                 protocol.transport.get_extra_info('peername'), msg)
-
-    def on_client_append(self, protocol, msg):
-        """Redirect client to leader upon receiving a client_append message."""
         msg = {'type': 'redirect',
                'leader': self.volatile['leaderId']}
         
@@ -346,7 +346,7 @@ class Leader(State):
         """Receive client messages from orchestrator and pass them to the
         appropriate method."""
         logger.debug('I am a leader, and I have received request from the client.')
-        if msg['type'] == 'get':
+        if 'type' in msg and msg['type'] == 'get':
             logger.debug("calling on_client_get")
             self.on_client_get(protocol, msg)
             return
@@ -427,16 +427,22 @@ class Leader(State):
             self.nextIndex[peer] = max(0, self.nextIndex[peer] - 1)
 
     def on_client_append(self, protocol, msg):
-        """Append new entries to Leader log."""
-        # just as a test
-        # protocol.send({'type': 'result', 'success': True, "log_index": self.log.index,
-        #             "term": self.persist['currentTerm'], "volatile_addr": self.volatile['address'],
-        #             "waiting_clients": self.waiting_clients, "commit_index": self.log.commmitIndes,
-        #             'msg': "test"})
-        # 'log, compacted, state_machine, commitIndex'
-        
-        entry = {'term': self.persist['currentTerm'], 'data': msg['data']}
-        if msg['data']['key'] == 'cluster':
+        """Append new entries to Leader log. When client taks to leader, it contains the public key + the actual message."""
+        # this is how client wrapps up the msg and send to the leader
+        # msg = {
+        #     'message': message,
+        #     'signature': self._sign_message(dill.dumps(message)),
+        #     'public_key': self.public_key.public_bytes(
+        #         encoding=serialization.Encoding.PEM,
+        #         format=serialization.PublicFormat.SubjectPublicKeyInfo
+        #     )
+        # }
+
+        msgData = msg['message']['data']
+        # TODO: think about what to do with the signatrue...
+        logger.debug('Leader has received append request from client')
+        entry = {'term': self.persist['currentTerm'], 'data': msgData}
+        if msgData['key'] == 'cluster':
             protocol.send({'type': 'result', 'success': False})
         self.log.append_entries([entry], self.log.index)
         

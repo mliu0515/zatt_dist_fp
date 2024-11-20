@@ -73,6 +73,7 @@ class DistributedDict(collections.UserDict, AbstractClient):
     def _append_log(self, payload):
         for attempt in range(self.append_retry_attempts):
             response = super()._append_log(payload)
+            
             if response['success']:
                 break
         # TODO: logging

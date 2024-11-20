@@ -17,9 +17,9 @@ class AbstractClient:
     def _request(self, message):
         try:
             if message['type'] == 'get':
-                pdb.set_trace()
                 return self._handle_get_request(message)
             else:
+                pdb.set_trace()
                 return self._handle_set_request(message)
         except socket.timeout:
             print('Timeout')
@@ -27,20 +27,25 @@ class AbstractClient:
             print(f"Exception: {e}")
     
     def _handle_get_request(self, message):
-        pdb.set_trace()
         response = self._send_to_server(self.server_address, message)
-        pdb.set_trace()
         if 'type' in response and response['type'] == 'redirect':
             self.server_address = tuple(response['leader'])
             print("current leader:", self.server_address)
             return self._handle_get_request(message)
-        pdb.set_trace()
         return response
 
     def _handle_set_request(self, message):
+        pdb.set_trace()
         leader_response = self._send_to_leader(message, self.currLeader)
+        pdb.set_trace()
         followers_response = [self._send_to_follower(follower) for follower in self.followers]
-        return {"leaderResp": leader_response, "followersResp": followers_response}
+        pdb.set_trace()
+        x = 5
+        pdb.set_trace()
+        if leader_response['success']:
+            return {"leaderResp": leader_response, "followersResp": followers_response, 'success': True}
+        else:
+            return {"leaderResp": leader_response, "followersResp": followers_response, 'success': False}
 
     def _send_to_server(self, address, message):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -66,7 +71,7 @@ class AbstractClient:
     
     def _send_to_follower(self, followerAddr):
         # to the follower, only send the public key, no message
-        print("sending to follower function got called")
+        print(f'sending follower {followerAddr} the public key')
         public_key_message = {
             'public_key': self.public_key.public_bytes(
                 encoding=serialization.Encoding.PEM,
