@@ -46,20 +46,6 @@ class State:
         """Receive peer messages from orchestrator and pass them to the
         appropriate method."""
         logger.debug('Received %s from %s', msg['type'], peer)
-        # logger.debug("the msg is: %s", msg)
-        # signature = msg['signature'] if 'signature' in msg else None
-        # public_key = msg['public_key'] if 'public_key' in msg else None
-        # if signature:
-        #     logger.debug("Yay the signature is: %s", signature)
-        # if public_key:
-        #     logger.debug("Yay the public_key is: %s", public_key)
-        # if not self._verify_signature(msg, signature, public_key):
-        #     # add peer to the blackList
-        #     blackListItem = peer
-        #     self.persist['blackList'].append(blackListItem)
-        #     # TODO: start re-election by incrementing the term
-        #     logger.error('Signature verification failed')
-        #     return
         if self.persist['currentTerm'] < msg['term']:
             self.persist['currentTerm'] = msg['term']
             if not type(self) is Follower:
@@ -76,9 +62,6 @@ class State:
     def data_received_client(self, protocol, msg):
         """Receive client messages from orchestrator and pass them to the
         appropriate method."""
-        # logger.debug('what the hell is this msg: %s', msg['message'])
-        # assert that "public_key" is in msg
-        # if the msg type is get
         if 'type' in msg and msg['type'] == 'get':
             self.on_client_get(protocol, msg)
             return
@@ -107,18 +90,6 @@ class State:
         return
         msg = {'type': 'redirect',
                'leader': self.volatile['leaderId']}
-        
-        ownId = self.volatile['address']  # Assuming this is a tuple, e.g., ('127.0.0.1', 5254)
-        ownRole = self.__class__.__name__
-        peername = protocol.transport.get_extra_info('peername')  # Assuming this returns a tuple, e.g., ('127.0.0.1', 8080)
-
-        logger.debug(
-            'My role is %s. My address is: %s:%s. I am redirecting client %s:%s to leader, who has the id %s',
-            ownRole, ownId[0], ownId[1], peername[0], peername[1], self.volatile['leaderId'])
-        # if I am the leader, change the role to Leader
-        # if ownId == self.volatile['leaderId']:
-        #     logger.debug('I am the leader. Changing role to Leader')
-        #     self.orchestrator.change_state(Leader)
         protocol.send(msg)
 
 
@@ -251,6 +222,13 @@ class Follower(State):
         Data from log compaction is always accepted.
         In the end, the log is scanned for a new cluster config.
         """
+        if peer in self.persist['blackList']:
+            # TODO: probably need modification here
+            resp = {'type': 'response_append', 'success': False,
+                    'term': self.persist['currentTerm'],
+                    'matchIndex': self.log.index}
+            self.orchestrator.send_peer(peer, resp)
+            return 
         if 'signature' in msg:
             msg.pop('signature')
         if 'public_key' in msg:
@@ -267,9 +245,10 @@ class Follower(State):
                 public_key = entry["public_key"] if "public_key" in entry else None
                 entry.pop("signature", None)
                 entry.pop("public_key", None)
-
                 if signature and public_key and not self._verify_signature(entry, signature, public_key):
                     logger.error('Signature verification failed')
+                    # blackLit the peer
+                    self.persist['blackList'].append(peer)
                     resp = {'type': 'response_append', 'success': False,
                         'term': self.persist['currentTerm'],
                         'matchIndex': self.log.index}
@@ -277,7 +256,6 @@ class Follower(State):
                     return
         if term_is_current:
             self.restart_election_timer()
-
         if 'compact_data' in msg:
             self.log = LogManager(compact_count=msg['compact_count'],
                                   compact_term=msg['compact_term'],
@@ -370,7 +348,6 @@ class Leader(State):
         """Receive client messages from orchestrator and pass them to the
         appropriate method."""
         # for testing purpose
-        # self._verify_signature(msg, msg['signature'], msg['public_key'])
         logger.debug('I am a leader, and I have received request from the client.')
         if 'type' in msg and msg['type'] == 'get':
             logger.debug("calling on_client_get")
@@ -454,16 +431,6 @@ class Leader(State):
 
     def on_client_append(self, protocol, msg):
         """Append new entries to Leader log. When client taks to leader, it contains the public key + the actual message."""
-        # this is how client wrapps up the msg and send to the leader
-        # msg = {
-        #     'message': message,
-        #     'signature': self._sign_message(dill.dumps(message)),
-        #     'public_key': self.public_key.public_bytes(
-        #         encoding=serialization.Encoding.PEM,
-        #         format=serialization.PublicFormat.SubjectPublicKeyInfo
-        #     )
-        # }
-
         msgData = msg['message']['data']
         # TODO: think about what to do with the signatrue...
         logger.debug('Leader has received append request from client')
