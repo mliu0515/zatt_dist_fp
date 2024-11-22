@@ -180,11 +180,11 @@ class State:
         # logger.debug("yooo public_key is: %s", public_key)
         # return True
         try:
-            logger.debug("message is: %s", message)
-            logger.debug("signature is: %s", signature)
-            logger.debug("public_key is: %s", public_key)
+            # logger.debug("yooo message is: %s", message)
+            # logger.debug("yooo signature is: %s", signature)
+            # logger.debug("yooo public_key is: %s", public_key)
             # currently message is of type dict. I need to convert it to bytes
-            msgBytes = dill.dumps(message)
+            msgBytes = dill.dumps(message['data'])
             public_key = serialization.load_pem_public_key(public_key, backend=default_backend())
             public_key.verify(
                 signature,
@@ -195,6 +195,7 @@ class State:
                 ),
                 hashes.SHA256()
             )
+            logger.debug('Signature verification passed!')
             return True
         except Exception as e:
             logger.error('Error verifying signature: %s', e)
@@ -368,6 +369,8 @@ class Leader(State):
     def data_received_client(self, protocol, msg):
         """Receive client messages from orchestrator and pass them to the
         appropriate method."""
+        # for testing purpose
+        # self._verify_signature(msg, msg['signature'], msg['public_key'])
         logger.debug('I am a leader, and I have received request from the client.')
         if 'type' in msg and msg['type'] == 'get':
             logger.debug("calling on_client_get")

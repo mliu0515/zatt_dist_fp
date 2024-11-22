@@ -56,9 +56,11 @@ class AbstractClient:
 
     def _send_to_leader(self, message, leaderAddr):
         print("sending to leader function got called")
+        # can we only sign the data part of the message?
+        # signedData = self._sign_message(dill.dumps(message['data']))
         signed_message = {
             'message': message,
-            'signature': self._sign_message(dill.dumps(message)),
+            'signature': self._sign_message(dill.dumps(message['data'])),
             'public_key': self.public_key.public_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PublicFormat.SubjectPublicKeyInfo
