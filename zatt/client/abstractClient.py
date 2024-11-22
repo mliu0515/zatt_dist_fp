@@ -35,21 +35,18 @@ class AbstractClient:
         return response
 
     def _handle_set_request(self, message):
+        followers_response = [self._send_to_follower(follower, message) for follower in self.followers]
         pdb.set_trace()
         leader_response = self._send_to_leader(message, self.currLeader)
         pdb.set_trace()
-        followers_response = [self._send_to_follower(follower) for follower in self.followers]
-        pdb.set_trace()
-        x = 5
-        pdb.set_trace()
-        if leader_response['success']:
-            return {"leaderResp": leader_response, "followersResp": followers_response, 'success': True}
-        else:
-            return {"leaderResp": leader_response, "followersResp": followers_response, 'success': False}
+        print(followers_response)
+        pdb.set_trace()     
+        return {"leaderResp": leader_response, "followersResp": followers_response, 'success': leader_response['success']}
 
     def _send_to_server(self, address, message):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(5.0)
+        pdb.set_trace()
         try:
             sock.connect(address)
             sock.send(dill.dumps(message))
@@ -67,12 +64,15 @@ class AbstractClient:
                 format=serialization.PublicFormat.SubjectPublicKeyInfo
             )
         }
+        pdb.set_trace()
         return self._send_to_server(leaderAddr, signed_message)
     
-    def _send_to_follower(self, followerAddr):
+    def _send_to_follower(self, followerAddr, message):
         # to the follower, only send the public key, no message
         print(f'sending follower {followerAddr} the public key')
+        msgType = message['type']
         public_key_message = {
+            'type': msgType,
             'public_key': self.public_key.public_bytes(
                 encoding=serialization.Encoding.PEM,
                 format=serialization.PublicFormat.SubjectPublicKeyInfo

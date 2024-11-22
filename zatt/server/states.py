@@ -46,18 +46,20 @@ class State:
         """Receive peer messages from orchestrator and pass them to the
         appropriate method."""
         logger.debug('Received %s from %s', msg['type'], peer)
-
-        # # TODO: Fix this one. I direclty copied from the client code.
-        # if 'signature' in msg:
-        #     if not self._verify_signature(msg['message'], msg['signature'], msg['public_key']):
-        #         # add the client to the blackList
-        #         blackListItem = protocol.transport.get_extra_info('peername')
-        #         self.persist['blackList'].append(blackListItem)
-        #         logger.error('Signature verification failed')
-        #         protocol.send({'type': 'result', 'success': False, 'additional_msg': f'faulty node: {blackListItem}'})
-        #         return
-        # logger.debug("verify signature passed")
-
+        # logger.debug("the msg is: %s", msg)
+        # signature = msg['signature'] if 'signature' in msg else None
+        # public_key = msg['public_key'] if 'public_key' in msg else None
+        # if signature:
+        #     logger.debug("Yay the signature is: %s", signature)
+        # if public_key:
+        #     logger.debug("Yay the public_key is: %s", public_key)
+        # if not self._verify_signature(msg, signature, public_key):
+        #     # add peer to the blackList
+        #     blackListItem = peer
+        #     self.persist['blackList'].append(blackListItem)
+        #     # TODO: start re-election by incrementing the term
+        #     logger.error('Signature verification failed')
+        #     return
         if self.persist['currentTerm'] < msg['term']:
             self.persist['currentTerm'] = msg['term']
             if not type(self) is Follower:
@@ -80,13 +82,13 @@ class State:
         if 'type' in msg and msg['type'] == 'get':
             self.on_client_get(protocol, msg)
             return
-        logger.debug("my role is: %s, I have received request from the client.", self.__class__.__name__)
+        logger.debug("my role is: %s, I have received request from the client. My address is: %s", self.__class__.__name__, self.volatile['address'])
         if 'public_key' not in msg:
             logger.error('public_key not in msg')
             protocol.send({'type': 'result', 'success': False, 'additional_msg': 'public_key not in msg'})
             return
         # store the public key in the volatile state
-        method = getattr(self, 'on_client_' + msg['message']['type'], None)
+        method = getattr(self, 'on_client_' + msg['type'], None)
         if method:
             method(protocol, msg)
         else:
@@ -172,8 +174,11 @@ class State:
         Returns:
             _type_: False if the signature is invalid, true otherwise
         """
-        # for testing purpose
-        return True
+        # TODO: uncoment this later on...
+        # logger.debug("yooo message is: %s", message)
+        # logger.debug("yooo signature is: %s", signature)
+        # logger.debug("yooo public_key is: %s", public_key)
+        # return True
         try:
             logger.debug("message is: %s", message)
             logger.debug("signature is: %s", signature)
@@ -245,12 +250,30 @@ class Follower(State):
         Data from log compaction is always accepted.
         In the end, the log is scanned for a new cluster config.
         """
+        if 'signature' in msg:
+            msg.pop('signature')
+        if 'public_key' in msg:
+            msg.pop('public_key')
 
         term_is_current = msg['term'] >= self.persist['currentTerm']
         prev_log_term_match = msg['prevLogTerm'] is None or\
             self.log.term(msg['prevLogIndex']) == msg['prevLogTerm']
         success = term_is_current and prev_log_term_match
-        
+        # if signature or public_key is in the message, pop them
+        if "entries" in msg:
+            for entry in msg["entries"]:
+                signature = entry["signature"] if "signature" in entry else None
+                public_key = entry["public_key"] if "public_key" in entry else None
+                entry.pop("signature", None)
+                entry.pop("public_key", None)
+
+                if signature and public_key and not self._verify_signature(entry, signature, public_key):
+                    logger.error('Signature verification failed')
+                    resp = {'type': 'response_append', 'success': False,
+                        'term': self.persist['currentTerm'],
+                        'matchIndex': self.log.index}
+                    self.orchestrator.send_peer(peer, resp)
+                    return
         if term_is_current:
             self.restart_election_timer()
 
@@ -441,7 +464,9 @@ class Leader(State):
         msgData = msg['message']['data']
         # TODO: think about what to do with the signatrue...
         logger.debug('Leader has received append request from client')
-        entry = {'term': self.persist['currentTerm'], 'data': msgData}
+        # Here I attach the signature and the public key to the log entry. So that later followers can verify the signature
+        signature, pub_key = msg['signature'], msg['public_key']
+        entry = {'term': self.persist['currentTerm'], 'data': msgData, "signature": signature, "public_key": pub_key}
         if msgData['key'] == 'cluster':
             protocol.send({'type': 'result', 'success': False})
         self.log.append_entries([entry], self.log.index)
