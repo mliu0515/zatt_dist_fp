@@ -391,9 +391,6 @@ class Leader(State):
                 msg.update({'compact_data': self.log.compacted.data,
                             'compact_term': self.log.compacted.term,
                             'compact_count': self.log.compacted.count})
-            # logger.debug("self.nextIndex[peer] is: %s", self.nextIndex[peer])
-            # logger.debug("leader's log data: %s ", self.log.log.data)
-            # logger.debug("the entries are: %s", msg['entries'])
             logger.debug('Sending %s entries to %s. Start index %s',
                          len(msg['entries']), peer, self.nextIndex[peer])
             self.orchestrator.send_peer(peer, msg)
