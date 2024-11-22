@@ -436,17 +436,6 @@ class Leader(State):
             logger.debug("Appending to waiting_clients")
             self.waiting_clients[self.log.index] = [protocol]
 
-        # The following are tests:
-        # waiting_clients = self.waiting_clients if 'waiting_clients' in self.__dict__ else "no waiting clients"
-        # commit_index = self.log.commitIndex if 'commitIndex' in self.log.__dict__ else "no commit index"
-        # logIndex = self.log.index
-        # term = self.persist['currentTerm'] if 'currentTerm' in self.persist else "no current term"
-        # volatile_addr = self.volatile['address'] if 'address' in self.volatile else "no address"
-        # print("waiting_clients:", waiting_clients)
-        # print("commit_index:", commit_index)
-        # print("logIndex:", logIndex)
-        # print("term:", term)
-        # print("volatile_addr:", volatile_addr)
         
         # protocol.send({'type': 'result', 'success': True, "log_index": logIndex,
         #             "term": term, "volatile_addr": volatile_addr, "commit_index": commit_index,

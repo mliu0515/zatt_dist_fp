@@ -19,7 +19,6 @@ class AbstractClient:
             if message['type'] == 'get':
                 return self._handle_get_request(message)
             else:
-                pdb.set_trace()
                 return self._handle_set_request(message)
         except socket.timeout:
             print('Timeout')
@@ -36,17 +35,12 @@ class AbstractClient:
 
     def _handle_set_request(self, message):
         followers_response = [self._send_to_follower(follower, message) for follower in self.followers]
-        pdb.set_trace()
-        leader_response = self._send_to_leader(message, self.currLeader)
-        pdb.set_trace()
-        print(followers_response)
-        pdb.set_trace()     
+        leader_response = self._send_to_leader(message, self.currLeader)  
         return {"leaderResp": leader_response, "followersResp": followers_response, 'success': leader_response['success']}
 
     def _send_to_server(self, address, message):
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(5.0)
-        pdb.set_trace()
         try:
             sock.connect(address)
             sock.send(dill.dumps(message))
@@ -66,7 +60,6 @@ class AbstractClient:
                 format=serialization.PublicFormat.SubjectPublicKeyInfo
             )
         }
-        pdb.set_trace()
         return self._send_to_server(leaderAddr, signed_message)
     
     def _send_to_follower(self, followerAddr, message):

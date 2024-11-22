@@ -18,9 +18,7 @@ class DistributedDict(collections.UserDict, AbstractClient):
         print("self.data['cluster']:", self.data['cluster'])
         self.append_retry_attempts = append_retry_attempts
         self.refresh_policy = refresh_policy
-        pdb.set_trace()
         self.refresh(force=True)
-        pdb.set_trace()
 
     def __getitem__(self, key):
         self.refresh()
@@ -52,16 +50,6 @@ class DistributedDict(collections.UserDict, AbstractClient):
         """
         if force or not (self.private_key and self.public_key):
             self.private_key, self.public_key = self._set_encryption_keys()
-            # publicKeyStrForTesting = self.public_key.public_bytes(
-            #     encoding=serialization.Encoding.PEM,
-            #     format=serialization.PublicFormat.SubjectPublicKeyInfo
-            # ).decode('utf-8')
-            # privateKeyStrForTesting = self.private_key.private_bytes(
-            #     encoding=serialization.Encoding.PEM,
-            #     format=serialization.PrivateFormat.PKCS8,
-            #     encryption_algorithm=serialization.NoEncryption()
-            # ).decode('utf-8')
-            # print(f"successfully set up keys, the public key is: {publicKeyStrForTesting}, and the private key is: {privateKeyStrForTesting}")
         if force or self.refresh_policy.can_update():
             self.data = self._get_state()
         if "leader" in self.data:
@@ -73,7 +61,6 @@ class DistributedDict(collections.UserDict, AbstractClient):
     def _append_log(self, payload):
         for attempt in range(self.append_retry_attempts):
             response = super()._append_log(payload)
-            
             if response['success']:
                 break
         # TODO: logging
