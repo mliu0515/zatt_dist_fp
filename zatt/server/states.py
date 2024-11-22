@@ -32,7 +32,7 @@ class State:
         else:
             self.orchestrator = orchestrator
             self.persist = PersistentDict(join(config.storage, 'state'),
-                                          {'votedFor': None, 'currentTerm': 0})
+                                          {'votedFor': None, 'currentTerm': 0, "mode": "RAFT"}) # mode could be RAFT or PBFT
             self.volatile = {'leaderId': None, 'cluster': config.cluster,
                              'address': config.address}
             self.log = LogManager()
@@ -45,6 +45,15 @@ class State:
     def data_received_peer(self, peer, msg):
         """Receive peer messages from orchestrator and pass them to the
         appropriate method."""
+        if peer in self.persist['blackList']:
+            logger.debug('Peer %s is blacklisted', peer)
+            # TODO: Or something else
+            return
+        if len(self.persist['blackList']) >= len(self.volatile['cluster']) / 4:
+            logger.info('TIME TO TRANFTER YOOOOO')
+            self.persist['mode'] = "PBFT"
+            # TODO: more functionality TBD
+            return
         logger.debug('Received %s from %s', msg['type'], peer)
         if self.persist['currentTerm'] < msg['term']:
             self.persist['currentTerm'] = msg['term']
@@ -222,13 +231,6 @@ class Follower(State):
         Data from log compaction is always accepted.
         In the end, the log is scanned for a new cluster config.
         """
-        if peer in self.persist['blackList']:
-            # TODO: probably need modification here
-            resp = {'type': 'response_append', 'success': False,
-                    'term': self.persist['currentTerm'],
-                    'matchIndex': self.log.index}
-            self.orchestrator.send_peer(peer, resp)
-            return 
         if 'signature' in msg:
             msg.pop('signature')
         if 'public_key' in msg:
