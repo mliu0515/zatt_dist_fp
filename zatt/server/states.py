@@ -226,10 +226,6 @@ class Follower(State):
         Data from log compaction is always accepted.
         In the end, the log is scanned for a new cluster config.
         """
-        if 'signature' in msg:
-            msg.pop('signature')
-        if 'public_key' in msg:
-            msg.pop('public_key')
 
         term_is_current = msg['term'] >= self.persist['currentTerm']
         prev_log_term_match = msg['prevLogTerm'] is None or\
@@ -238,7 +234,7 @@ class Follower(State):
         # if signature or public_key is in the message, pop them
         if "entries" in msg:
             for entry in msg["entries"]:
-                signature, public_key = entry.get("signature", None), entry.get("public_key", None)
+                signature, public_key = entry.get("signature", None), self.volatile.get("public_key", None)
                 entry.pop("signature", None)
                 entry.pop("public_key", None)
                 if signature and public_key and not self._verify_signature(entry, signature, public_key):
@@ -425,6 +421,7 @@ class Leader(State):
         logger.debug('Leader has received append request from client')
         # Here I attach the signature and the public key to the log entry. So that later followers can verify the signature
         signature, pub_key = msg['signature'], msg['public_key']
+        # TODO: fix this
         entry = {'term': self.persist['currentTerm'], 'data': msgData, "signature": signature, "public_key": pub_key}
         if msgData['key'] == 'cluster':
             protocol.send({'type': 'result', 'success': False})

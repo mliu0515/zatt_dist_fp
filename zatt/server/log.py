@@ -46,7 +46,6 @@ class Log(collections.UserList):
         utils.dill_appendable_pack(self.data, self.path)
     
     def to_list(self):
-        print("dfghjkl")
         print(type(self.data[:]))
         return self.data[:]
 
