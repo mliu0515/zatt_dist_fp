@@ -154,11 +154,6 @@ class State:
         Returns:
             _type_: False if the signature is invalid, true otherwise
         """
-        # TODO: uncoment this later on...
-        # logger.debug("yooo message is: %s", message)
-        # logger.debug("yooo signature is: %s", signature)
-        # logger.debug("yooo public_key is: %s", public_key)
-        # return True
         try:
             # logger.debug("yooo message is: %s", message)
             # logger.debug("yooo signature is: %s", signature)
@@ -243,17 +238,16 @@ class Follower(State):
         # if signature or public_key is in the message, pop them
         if "entries" in msg:
             for entry in msg["entries"]:
-                signature = entry["signature"] if "signature" in entry else None
-                public_key = entry["public_key"] if "public_key" in entry else None
+                signature, public_key = entry.get("signature", None), entry.get("public_key", None)
                 entry.pop("signature", None)
                 entry.pop("public_key", None)
                 if signature and public_key and not self._verify_signature(entry, signature, public_key):
-                    logger.error('Signature verification failed')
                     # blackLit the peer
                     self.persist['blackList'].append(peer)
-                    resp = {'type': 'response_append', 'success': False,
-                        'term': self.persist['currentTerm'],
-                        'matchIndex': self.log.index}
+                    if len(self.persist['blackList']) >= len(self.volatile['cluster']) / 4:
+                        self.persist['mode'] = "PBFT"
+                        logger.info('RAFT threshold reached, switching to PBFT')
+                    resp = {'type': 'response_append', 'success': False, 'term': self.persist['currentTerm'], 'matchIndex': self.log.index}
                     self.orchestrator.send_peer(peer, resp)
                     return
         if term_is_current:
@@ -273,12 +267,8 @@ class Follower(State):
         else:
             logger.warning('Could not append entries. cause: %s', 'wrong\
                 term' if not term_is_current else 'prev log term mismatch')
-
         self._update_cluster()
-
-        resp = {'type': 'response_append', 'success': success,
-                'term': self.persist['currentTerm'],
-                'matchIndex': self.log.index}
+        resp = {'type': 'response_append', 'success': success, 'term': self.persist['currentTerm'], 'matchIndex': self.log.index}
         self.orchestrator.send_peer(peer, resp)
 
 
