@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import statistics
+import random
 import pdb
 import dill
 from random import randrange
@@ -226,6 +227,11 @@ class Follower(State):
         Data from log compaction is always accepted.
         In the end, the log is scanned for a new cluster config.
         """
+        # if leader is in the blackList, do not accept the message
+        if peer in self.persist['blackList']:
+            logger.debug('Peer %s is blacklisted', peer)
+            resp = {'type': 'response_append', 'success': False, 'term': self.persist['currentTerm'], 'matchIndex': self.log.index}
+            return
 
         term_is_current = msg['term'] >= self.persist['currentTerm']
         prev_log_term_match = msg['prevLogTerm'] is None or\
@@ -240,6 +246,8 @@ class Follower(State):
                 if signature and public_key and not self._verify_signature(entry, signature, public_key):
                     # blackLit the peer
                     self.persist['blackList'].append(peer)
+                    # TODO: Look at this
+                    logger.debug('Signature verification failed, current blackList: %s', self.persist['blackList'])
                     if len(self.persist['blackList']) >= len(self.volatile['cluster']) / 4:
                         self.persist['mode'] = "PBFT"
                         logger.info('RAFT threshold reached, switching to PBFT')
@@ -420,10 +428,16 @@ class Leader(State):
         # TODO: think about what to do with the signatrue...
         logger.debug('Leader has received append request from client')
         # Here I attach the signature and the public key to the log entry. So that later followers can verify the signature
-        signature, pub_key = msg['signature'], msg['public_key']
-        # TODO: fix this. Delete the publit key!
-        # entry = {'term': self.persist['currentTerm'], 'data': msgData, "signature": signature, "public_key": pub_key}
-        entry = {'term': self.persist['currentTerm'], 'data': msgData, "signature": signature}
+        signature = msg['signature']
+       
+        # Introduce faulty behavior by incorrectly signing the entry
+        faulty_signature = b'faulty_signature'  # Replace with incorrect data to simulate a faulty leader
+        
+        # TODO: 5 percent chance of faulty signature
+        if random.uniform(0, 1) < 0.05:
+            entry = {'term': self.persist['currentTerm'], 'data': msgData, "signature": faulty_signature}
+        else:
+            entry = {'term': self.persist['currentTerm'], 'data': msgData, "signature": signature}
         if msgData['key'] == 'cluster':
             protocol.send({'type': 'result', 'success': False})
         self.log.append_entries([entry], self.log.index)

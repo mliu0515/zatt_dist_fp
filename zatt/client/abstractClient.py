@@ -22,8 +22,10 @@ class AbstractClient:
                 return self._handle_set_request(message)
         except socket.timeout:
             print('Timeout')
+            return {'success': False, 'error': 'Timeout'}
         except Exception as e:
-            print(f"Exception: {e}")
+            print(f"Request failed: {e}")
+            return {'success': False, 'error': str(e)}
     
     def _handle_get_request(self, message):
         response = self._send_to_server(self.server_address, message)
