@@ -421,8 +421,9 @@ class Leader(State):
         logger.debug('Leader has received append request from client')
         # Here I attach the signature and the public key to the log entry. So that later followers can verify the signature
         signature, pub_key = msg['signature'], msg['public_key']
-        # TODO: fix this
-        entry = {'term': self.persist['currentTerm'], 'data': msgData, "signature": signature, "public_key": pub_key}
+        # TODO: fix this. Delete the publit key!
+        # entry = {'term': self.persist['currentTerm'], 'data': msgData, "signature": signature, "public_key": pub_key}
+        entry = {'term': self.persist['currentTerm'], 'data': msgData, "signature": signature}
         if msgData['key'] == 'cluster':
             protocol.send({'type': 'result', 'success': False})
         self.log.append_entries([entry], self.log.index)

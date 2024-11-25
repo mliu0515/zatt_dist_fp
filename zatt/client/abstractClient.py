@@ -36,6 +36,7 @@ class AbstractClient:
     def _handle_set_request(self, message):
         followers_response = [self._send_to_follower(follower, message) for follower in self.followers]
         leader_response = self._send_to_leader(message, self.currLeader)  
+        print({"leaderResp": leader_response, "followersResp": followers_response, 'success': leader_response['success']})
         return {"leaderResp": leader_response, "followersResp": followers_response, 'success': leader_response['success']}
 
     def _send_to_server(self, address, message):
