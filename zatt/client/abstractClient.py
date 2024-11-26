@@ -24,7 +24,7 @@ class AbstractClient:
                 response = self._handle_set_request(message)
             end_time = time.perf_counter()
             latency = end_time - start_time
-            response['latency'] = latency
+            response['request_latency'] = latency
             return response
         except socket.timeout:
             print('Timeout')
@@ -51,9 +51,14 @@ class AbstractClient:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(5.0)
         try:
+            start_time = time.perf_counter()
             sock.connect(address)
             sock.send(dill.dumps(message))
-            return self._receive_response(sock)
+            response = self._receive_response(sock)
+            end_time = time.perf_counter()
+            latency = end_time - start_time
+            response[f'server_response_latency_{address}'] = latency
+            return response
         finally:
             sock.close()
 
