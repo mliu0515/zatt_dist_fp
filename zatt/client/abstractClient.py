@@ -4,6 +4,7 @@ import msgpack
 import pickle
 import dill
 import pdb
+import time
 # import encryption stuff
 from cryptography.hazmat.primitives.asymmetric import rsa, padding
 from cryptography.hazmat.primitives import hashes, serialization
@@ -16,10 +17,15 @@ class AbstractClient:
 
     def _request(self, message):
         try:
+            start_time = time.perf_counter() 
             if message['type'] == 'get':
-                return self._handle_get_request(message)
+                response = self._handle_get_request(message)
             else:
-                return self._handle_set_request(message)
+                response = self._handle_set_request(message)
+            end_time = time.perf_counter()
+            latency = end_time - start_time
+            response['latency'] = latency
+            return response
         except socket.timeout:
             print('Timeout')
             return {'success': False, 'error': 'Timeout'}
