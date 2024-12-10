@@ -10,9 +10,10 @@ def setup(config={}):
     config = Config(config=config)
     start_logger()
     logger = logging.getLogger(__name__)
-
-    loop = asyncio.get_event_loop()
+    
     orchestrator = Orchestrator()
+    loop = asyncio.get_event_loop()
+
     coro = loop.create_datagram_endpoint(lambda: PeerProtocol(orchestrator),
                                          local_addr=config.address)
     transport, _ = loop.run_until_complete(coro)

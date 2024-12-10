@@ -17,14 +17,15 @@ class AbstractClient:
 
     def _request(self, message):
         try:
-            start_time = time.perf_counter() 
+            # start_time = time.perf_counter() 
             if message['type'] == 'get':
                 response = self._handle_get_request(message)
             else:
+                # pdb.set_trace()
                 response = self._handle_set_request(message)
-            end_time = time.perf_counter()
-            latency = end_time - start_time
-            response['request_latency'] = latency
+            # end_time = time.perf_counter()
+            # latency = end_time - start_time
+            # response['request_latency'] = latency
             return response
         except socket.timeout:
             print('Timeout')
@@ -42,6 +43,8 @@ class AbstractClient:
         return response
 
     def _handle_set_request(self, message):
+        self._check_mode()  # Ensure raft mode is enabled
+        # Proceed only if in raft mode
         followers_response = [self._send_to_follower(follower, message) for follower in self.followers]
         leader_response = self._send_to_leader(message, self.currLeader)  
         print({"leaderResp": leader_response, "followersResp": followers_response, 'success': leader_response['success']})
@@ -78,6 +81,7 @@ class AbstractClient:
     
     def _send_to_follower(self, followerAddr, message):
         # to the follower, only send the public key, no message
+        pdb.set_trace()
         print(f'sending follower {followerAddr} the public key')
         msgType = message['type']
         public_key_message = {
@@ -133,8 +137,12 @@ class AbstractClient:
 
     @property
     def diagnostic(self):
+        """Diagnostic. Only works in raft mode."""
+        self._check_mode()  # Ensure raft mode is enabled
         return self._request({'type': 'diagnostic'})
 
     def config_cluster(self, action, address, port):
+        """Cluster configuration. Only works in raft mode."""
+        self._check_mode()  # Ensure raft mode is enabled
         return self._request({'type': 'config', 'action': action,
                               'address': address, 'port': port})

@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 class Log(collections.UserList):
     def __init__(self, erase_log=False):
         super().__init__()
+        # pdb.set_trace()
         self.path = os.path.join(config.storage, 'log')
         #  load
         logger.debug('Initializing log')
@@ -28,6 +29,8 @@ class Log(collections.UserList):
             logger.debug('Using persisted data')
 
     def append_entries(self, entries, start):
+        # pdb.set_trace()
+        
         if len(self.data) >= start:
             self.replace(self.data[:start] + entries)
         else:

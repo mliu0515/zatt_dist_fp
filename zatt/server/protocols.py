@@ -2,7 +2,7 @@ import asyncio
 import os
 import msgpack
 import logging
-from .states import Follower
+from .states import Follower, PBFTNode
 from .config import config
 from .utils import extended_msgpack_serializer
 import pickle
@@ -17,12 +17,19 @@ class Orchestrator():
     Only one Orchestrator """
     def __init__(self):
         os.makedirs(config.storage, exist_ok=True)
-        self.state = Follower(orchestrator=self)
-
+        # self.state = None  # Initialize the state here to avoid the AttributeError
+        # import pdb; pdb.set_trace()
+        # self.state = Follower(orchestrator=self)  # ALWAYS start with raft by default, hope that's fine
+        self.state = PBFTNode(orchestrator=self)
+        logger.debug(f"The State is set to: {self.state}")
+        
     def change_state(self, new_state):
         self.state.teardown()
         logger.info('State change:' + new_state.__name__)
         self.state = new_state(old_state=self.state)
+        if new_state.__name__ == 'PBFTNode':
+            logger.info("CHANGED TO PBFT!!! I DON'T HAVE TO WORK ANYMORE")
+            exit()
 
     def data_received_peer(self, sender, message):
         self.state.data_received_peer(sender, message)
@@ -46,6 +53,7 @@ class Orchestrator():
     def send_peer(self, recipient, message):
         # message = self.prepare_message_for_serialization(message)
         # try:
+        # import pdb; pdb.set_trace()
         if recipient != self.state.volatile['address']:
             # print("type of the message: ", type(message))
             # self.peer_transport.sendto(
