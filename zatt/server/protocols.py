@@ -19,8 +19,8 @@ class Orchestrator():
         os.makedirs(config.storage, exist_ok=True)
         # self.state = None  # Initialize the state here to avoid the AttributeError
         # import pdb; pdb.set_trace()
-        # self.state = Follower(orchestrator=self)  # ALWAYS start with raft by default, hope that's fine
-        self.state = PBFTNode(orchestrator=self)
+        self.state = Follower(orchestrator=self)  # ALWAYS start with raft by default, hope that's fine
+        # self.state = PBFTNode(orchestrator=self)
         logger.debug(f"The State is set to: {self.state}")
         
     def change_state(self, new_state):

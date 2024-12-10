@@ -36,7 +36,7 @@ class State:
         else:
             self.orchestrator = orchestrator
             self.persist = PersistentDict(join(config.storage, 'state'),
-                                          {'votedFor': None, 'currentTerm': 0, 'protocol': "pbft"}) # In the persistent storage so that it cannot be messed with by faulty nodes AND remembers after it recovers
+                                          {'votedFor': None, 'currentTerm': 0, 'protocol': "raft"}) # In the persistent storage so that it cannot be messed with by faulty nodes AND remembers after it recovers
             self.volatile = {'leaderId': None, 'cluster': config.cluster,
                              'address': config.address}
             self.log = LogManager()
@@ -516,7 +516,7 @@ class Leader(State):
         faulty_signature = b'faulty_signature'  # Replace with incorrect data to simulate a faulty leader
         
         # TODO: 5 percent chance of faulty signature
-        if random.uniform(0, 1) < 0.05:
+        if random.uniform(0, 1) < 0.5:
             entry = {'term': self.persist['currentTerm'], 'data': msgData, "signature": faulty_signature}
         else:
             entry = {'term': self.persist['currentTerm'], 'data': msgData, "signature": signature}
@@ -624,6 +624,10 @@ class PBFTNode(State):
         if self.volatile['primary'] is None:
             self.start_view_change_timer()
     
+    def teardown(self):
+        """Stop timers before changing state."""
+        self.view_change_timer.cancel()
+
     def request_current_state(self):
         """Request the current state from the cluster when the server joins."""
         pdb.set_trace()
@@ -921,7 +925,7 @@ class PBFTNode(State):
 class Primary(State):
     def __init__(self, old_state=None, orchestrator=None):
         super().__init__(old_state, orchestrator)
-
+        # self.cluster = self.volatile['cluster']
         self.heartbeat_interval = 5  # Time interval for sending heartbeats
         self.start_heartbeat()
         
@@ -954,7 +958,7 @@ class Primary(State):
     def send_heartbeat(self):
         """Send a heartbeat message to all replicas."""
         logger.debug("Primary %s sending heartbeat.", self.volatile['address'])
-        for peer in self.cluster:
+        for peer in self.volatile['cluster']:
             if peer != self.volatile['address']:  # Do not send to self
                 msg = {'type': 'heartbeat', 'view': self.volatile['current_view']}
                 self.orchestrator.send_peer(peer, msg)
